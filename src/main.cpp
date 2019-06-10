@@ -120,6 +120,11 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
+void mv_up();
+void mv_down();
+void mv_left();
+void mv_right();
+
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
 struct SceneObject
@@ -164,7 +169,7 @@ bool g_MiddleMouseButtonPressed = false; // Análogo para botão do meio do mous
 // renderização.
 float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
-float g_CameraDistance = 3.5f; // Distância da câmera para a origem
+float g_CameraDistance = 11.5f; // Distância da câmera para a origem
 
 // Variáveis que controlam rotação do antebraço
 float g_ForearmAngleZ = 0.0f;
@@ -193,6 +198,13 @@ GLint bbox_max_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
+
+glm::vec4 g_camera_position_c;
+int g_up, g_down, g_right, g_left;
+
+float g_spaceship_inclination_x,g_spaceship_inclination_z;
+int g_space_pressed, g_projectil_count;
+glm::vec3 g_player_projectils[10];
 
 int main(int argc, char* argv[])
 {
@@ -270,6 +282,7 @@ int main(int argc, char* argv[])
     // Carregamos duas imagens para serem utilizadas como textura
     LoadTextureImage("../../data/tc-earth_daymap_surface.jpg");      // TextureImage0
     LoadTextureImage("../../data/tc-earth_nightmap_citylights.gif"); // TextureImage1
+    LoadTextureImage("../../data/starry-sky.jpg"); // TextureImage2
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -283,6 +296,14 @@ int main(int argc, char* argv[])
     ObjModel planemodel("../../data/plane.obj");
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
+
+    ObjModel planetmodel("../../data/planet.obj");
+    ComputeNormals(&planetmodel);
+    BuildTrianglesAndAddToVirtualScene(&planetmodel);
+
+    ObjModel projectilmodel("../../data/projectil.obj");
+    ComputeNormals(&projectilmodel);
+    BuildTrianglesAndAddToVirtualScene(&projectilmodel);
 
     if ( argc > 1 )
     {
@@ -306,6 +327,20 @@ int main(int argc, char* argv[])
     glm::mat4 the_projection;
     glm::mat4 the_model;
     glm::mat4 the_view;
+
+    g_camera_position_c = glm::vec4(1.0,1.0,1.0,1.0f);
+    int first_iteration = 1;
+    g_up = 0;
+    g_down = 0;
+    g_right = 0;
+    g_left = 0;
+    g_spaceship_inclination_x = 0.0f;
+    g_spaceship_inclination_z = 0.0f;
+    g_space_pressed = 0;
+    g_projectil_count = 0;
+    int i,j;
+    for(j = 0;j<10;j++)
+        g_player_projectils[j] = glm::vec3(100.0f,100.0f,100.0f);
 
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -337,16 +372,65 @@ int main(int argc, char* argv[])
         float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
         float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
 
+        if(first_iteration){
+            g_camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
+            first_iteration = 0;
+        }
+
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 172-182 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
-        glm::vec4 camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
-        glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
-        glm::vec4 camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
+        //glm::vec4 camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
+        //glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+        glm::vec4 camera_view_vector = glm::vec4(-x,-y,-z,0.0f);//camera_lookat_l - g_camera_position_c; // Vetor "view", sentido para onde a câmera está virada
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+
+        if(g_up){
+            mv_up();
+            g_spaceship_inclination_x += 1.0f;
+            if((int) g_spaceship_inclination_x > 3)
+                g_spaceship_inclination_x = 3.0f;
+        }else
+        {
+            if((int) g_spaceship_inclination_x > 0)
+                g_spaceship_inclination_x -= 1.0f;
+        }
+        if(g_down){
+            mv_down();
+            g_spaceship_inclination_x -= 1.0f;
+            if((int) g_spaceship_inclination_x < -3)
+                g_spaceship_inclination_x = -3.0f;
+        }
+        else
+        {
+            if((int) g_spaceship_inclination_x < 0)
+                g_spaceship_inclination_x += 1.0f;
+        }
+        if(g_left){
+            mv_left();
+            g_spaceship_inclination_z += 1.0f;
+            if((int) g_spaceship_inclination_z > 3)
+                g_spaceship_inclination_z = 3.0f;
+        }
+        else
+        {
+            if((int) g_spaceship_inclination_z > 0)
+                g_spaceship_inclination_z -= 1.0f;
+        }
+        if(g_right){
+            mv_right();
+            g_spaceship_inclination_z -= 1.0f;
+            if((int) g_spaceship_inclination_z < -3)
+                g_spaceship_inclination_z = -3.0f;
+        }
+        else
+        {
+            if((int) g_spaceship_inclination_z < 0)
+                g_spaceship_inclination_z += 1.0f;
+        }
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slide 186 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
-        glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+        glm::mat4 view = Matrix_Camera_View(g_camera_position_c, camera_view_vector, camera_up_vector);
 
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
@@ -354,7 +438,7 @@ int main(int argc, char* argv[])
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 190-193 do documento "Aula_09_Projecoes.pdf".
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -10.0f; // Posição do "far plane"
+        float farplane  = -30.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -388,28 +472,131 @@ int main(int argc, char* argv[])
         #define SPHERE 0
         #define BUNNY  1
         #define PLANE  2
+        #define PLANET 3
+        #define PROJECTIL 4
 
         // Desenhamos o modelo da esfera
-        model = Matrix_Translate(-1.0f,0.0f,0.0f)
-              * Matrix_Rotate_Z(0.6f)
-              * Matrix_Rotate_X(0.2f)
-              * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
+        model = Matrix_Translate(0.0f,0.0f,0.0f)
+              * Matrix_Rotate_Y(g_AngleY - (M_PI));
+              //* Matrix_Rotate_Z(0.6f)
+              //* Matrix_Rotate_X(0.2f)
+              //* Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, SPHERE);
         DrawVirtualObject("sphere");
-
+        
         // Desenhamos o modelo do coelho
-        model = Matrix_Translate(1.0f,0.0f,0.0f)
-              * Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
+        model = Matrix_Translate(g_camera_position_c.x,g_camera_position_c.y-0.7f,g_camera_position_c.z-3.0f)*
+                Matrix_Rotate_Z(g_AngleZ + g_spaceship_inclination_z*(M_PI/2)*0.03)*
+                Matrix_Rotate_X(g_AngleX + g_spaceship_inclination_x*(M_PI/2)*0.03);
+              //* Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, BUNNY);
         DrawVirtualObject("bunny");
 
         // Desenhamos o plano do chão
-        model = Matrix_Translate(0.0f,-1.1f,0.0f);
+        model = 
+        Matrix_Translate(0.0f,-7.0f,0.0f) * Matrix_Scale(10.5f,0.0f,10.5f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
         DrawVirtualObject("plane");
+
+        // Desenhamos o plano do ceu
+        model = 
+        Matrix_Translate(0.0f,7.0f,0.0f) * Matrix_Rotate_X(g_AngleX + M_PI) * Matrix_Scale(10.5f,0.0f,10.5f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, PLANE);
+        DrawVirtualObject("plane");
+
+        // Desenhamos o plano que fica atras da camera
+        model = 
+        Matrix_Translate(0.0f,0.0f,10.5f) 
+        * Matrix_Rotate_X(g_AngleX - (M_PI/2))
+        * Matrix_Rotate_Y(g_AngleY - (M_PI))
+        * Matrix_Scale(10.5f,0.0f,7.0f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, PLANE);
+        DrawVirtualObject("plane");
+
+        // Desenhamos o plano que fica a frente da camera
+        model = 
+        Matrix_Translate(0.0f,0.0f,-10.5f) 
+        * Matrix_Rotate_X(g_AngleX + (M_PI/2)) 
+        * Matrix_Scale(10.5f,0.0f,7.0f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, PLANE);
+        DrawVirtualObject("plane");
+
+        // Desenhamos o plano que fica a direita da camera
+        model = 
+        Matrix_Translate(10.5f,0.0f,0.0f) 
+        * Matrix_Rotate_Z(g_AngleZ - (3*M_PI/2)) 
+        * Matrix_Rotate_Y(g_AngleY - (M_PI/2)) 
+        * Matrix_Scale(10.5f,0.0f,7.0f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, PLANE);
+        DrawVirtualObject("plane");
+
+        // Desenhamos o plano que fica a direita da camera
+        model = 
+        Matrix_Translate(-10.5f,0.0f,0.0f) 
+        * Matrix_Rotate_Z(g_AngleZ + (3*M_PI/2)) 
+        * Matrix_Rotate_Y(g_AngleY + (M_PI/2)) 
+        * Matrix_Scale(10.5f,0.0f,7.0f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, PLANE);
+        DrawVirtualObject("plane");
+
+        // Desenhamos o modelo da esfera
+        model = Matrix_Translate(-9.0f,-2.0f,3.0f)
+        * Matrix_Scale(5.0f,5.0f,5.0f)
+        * Matrix_Rotate_Y(g_AngleY - (float)glfwGetTime() * 0.04f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, PLANET);
+        DrawVirtualObject("planet");
+
+        if(g_space_pressed){    //Se a tecla espaco foi pressionada.
+            i=0;
+            if(g_projectil_count<10){   //Se o numero de projeteis e menor que 10
+                while(g_player_projectils[i].x!=100.0f 
+                && g_player_projectils[i].y!=100.0f 
+                && g_player_projectils[i].z!=100.0f 
+                && i<10)    //Verifica se ainda existe espaco para alocar mais um projetil.
+                    i++;
+                if(i<10){   //Se ainda existe espaco, acrescenta mais um projetil na lista que deve ser desenhada.
+                    g_player_projectils[i] = glm::vec3(g_camera_position_c.x,g_camera_position_c.y-0.7f,(g_camera_position_c.z-3.0f));
+                    g_projectil_count += 1;
+                }
+            }
+            g_space_pressed = 0;    //Remove a solicitacao da tecla espaco.
+        }
+
+        if(g_projectil_count > 0){  //Se algum projetil precisa ser desenhado.
+            for(int index = 0 ; index < g_projectil_count ; index++ ){  //Para cada posicao do array de projeteis.
+                if(g_player_projectils[index].x!=100.0f 
+                && g_player_projectils[index].y!=100.0f 
+                && g_player_projectils[index].z!=100.0f){   //Se a posicao do array nao estiver vazia.
+                    if(g_player_projectils[index].z  > -10.0f){ //Se o projetil ainda nao saiu dos limites da tela.
+                        
+                        //Desenha o projetil na tela.
+                        model = Matrix_Translate(g_player_projectils[index].x,g_player_projectils[index].y,g_player_projectils[index].z)
+                        * Matrix_Scale(0.1f,0.1f,0.1f);
+                        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                        glUniform1i(object_id_uniform, PROJECTIL);
+                        DrawVirtualObject("projectil");
+                        //Salva a proxima posicao do projetil na tela.
+                        g_player_projectils[index].z -= 0.15f; 
+                    }
+                    else{   //Se o projetil ja saiu dos limites da tela.
+                        for(i = index; i < 9; i++){ //Reposiciona todas as entradas do array.
+                            g_player_projectils[i]=g_player_projectils[i+1];
+                        }
+                        g_player_projectils[9]=glm::vec3(100.0f,100.0f,100.0f); //Sinaliza que a ultima posicao do array esta livre.
+                        g_projectil_count-=1;   //Decrementa o contador de projeteis.
+                    }
+                }
+            }
+        }
 
         // Pegamos um vértice com coordenadas de modelo (0.5, 0.5, 0.5, 1) e o
         // passamos por todos os sistemas de coordenadas armazenados nas
@@ -1063,14 +1250,24 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         g_CameraPhi   += 0.01f*dy;
 
         // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-        float phimax = 3.141592f/2;
-        float phimin = -phimax;
+        float phimax = 0.0f;//3.141592f/16;
+        float phimin = -3.141592f/16;
+
+        // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
+        float thetamax = 3.141592f/14;
+        float thetamin = -thetamax;
 
         if (g_CameraPhi > phimax)
             g_CameraPhi = phimax;
 
         if (g_CameraPhi < phimin)
             g_CameraPhi = phimin;
+
+        if (g_CameraTheta > thetamax)
+            g_CameraTheta = thetamax;
+
+        if (g_CameraTheta < thetamin)
+            g_CameraTheta = thetamin;
 
         // Atualizamos as variáveis globais para armazenar a posição atual do
         // cursor como sendo a última posição conhecida do cursor.
@@ -1178,6 +1375,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         g_ForearmAngleZ = 0.0f;
         g_TorsoPositionX = 0.0f;
         g_TorsoPositionY = 0.0f;
+
+        g_space_pressed = 1;
     }
 
     // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
@@ -1205,6 +1404,71 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         fprintf(stdout,"Shaders recarregados!\n");
         fflush(stdout);
     }
+    // Pressionando a tecla W, a flag global de movimentar para frente é ativada, e
+    // só é desativada quando a tecla é liberada.
+    if (key == GLFW_KEY_W && action == GLFW_PRESS)
+    {        
+       g_up = 1; 
+    }
+    if (key == GLFW_KEY_W && action == GLFW_RELEASE)
+    {        
+       g_up = 0; 
+    }
+    // Pressionando a tecla S, a flag global de movimentar para trás é ativada, e
+    // só é desativada quando a tecla é liberada.
+    if (key == GLFW_KEY_S && action == GLFW_PRESS)
+    {
+        g_down = 1;
+    }
+    if (key == GLFW_KEY_S && action == GLFW_RELEASE)
+    {
+        g_down = 0;
+    }
+    // Pressionando a tecla A, a flag global de movimentar para esquerda é ativada, e
+    // só é desativada quando a tecla é liberada.
+    if (key == GLFW_KEY_A && action == GLFW_PRESS)
+    {
+       g_left = 1;
+    }
+    if (key == GLFW_KEY_A && action == GLFW_RELEASE)
+    {
+       g_left = 0;
+    }
+    // Pressionando a tecla D, a flag global de movimentar para direita é ativada, e
+    // só é desativada quando a tecla é liberada.
+    if (key == GLFW_KEY_D && action == GLFW_PRESS)
+    {
+       g_right = 1;
+    }
+    if (key == GLFW_KEY_D && action == GLFW_RELEASE)
+    {
+       g_right = 0;
+    }
+}
+
+//Função para movimentar a câmera para frente.
+void mv_up(){
+    //g_camera_position_c.x -= 0.2f*cos(g_CameraPhi)*sin(g_CameraTheta);
+    //g_camera_position_c.z -= 0.2f*sin(g_CameraPhi);
+    g_camera_position_c.y += 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+}
+//Função para movimentar a câmera para trás.
+void mv_down(){
+    //g_camera_position_c.x += 0.2f*cos(g_CameraPhi)*sin(g_CameraTheta);
+    //g_camera_position_c.z += 0.2f*sin(g_CameraPhi);
+    g_camera_position_c.y -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);    
+}
+//Função para movimentar a câmera para a esquerda.
+void mv_left(){
+    //g_camera_position_c.z += 0.2f*cos(g_CameraPhi)*sin(g_CameraTheta);
+    //g_camera_position_c.y = g_camera_position_c.y;
+    g_camera_position_c.x -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+}
+//Função para movimentar a câmera para a direita.
+void mv_right(){
+    //g_camera_position_c.z -= 0.2f*cos(g_CameraPhi)*sin(g_CameraTheta);
+    //g_camera_position_c.y = g_camera_position_c.y;
+    g_camera_position_c.x += 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal
