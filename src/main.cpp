@@ -15,6 +15,8 @@
 //  vira
 //    #include <cstdio> // Em C++
 //
+#define M_PI   3.14159265358979323846
+
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -283,6 +285,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/tc-earth_daymap_surface.jpg");      // TextureImage0
     LoadTextureImage("../../data/tc-earth_nightmap_citylights.gif"); // TextureImage1
     LoadTextureImage("../../data/starry-sky.jpg"); // TextureImage2
+    LoadTextureImage("../../data/red.jpg"); // TextureImage3
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -372,17 +375,18 @@ int main(int argc, char* argv[])
         float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
         float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
 
-        if(first_iteration){
+        /*if(first_iteration){*/
             g_camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
             first_iteration = 0;
-        }
+        //}
 
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 172-182 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
         //glm::vec4 camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
-        //glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
-        glm::vec4 camera_view_vector = glm::vec4(-x,-y,-z,0.0f);//camera_lookat_l - g_camera_position_c; // Vetor "view", sentido para onde a câmera está virada
+        glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,1.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+        //glm::vec4 camera_view_vector = glm::vec4(-x,-y,-z,0.0f);//camera_lookat_l - g_camera_position_c; // Vetor "view", sentido para onde a câmera está virada
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+         glm::vec4 camera_view_vector = camera_lookat_l - g_camera_position_c;
 
         if(g_up){
             mv_up();
@@ -476,7 +480,7 @@ int main(int argc, char* argv[])
         #define PROJECTIL 4
 
         // Desenhamos o modelo da esfera
-        model = Matrix_Translate(0.0f,0.0f,0.0f)
+        model = Matrix_Translate(0.0f,0.0f,-3.0f)
               * Matrix_Rotate_Y(g_AngleY - (M_PI));
               //* Matrix_Rotate_Z(0.6f)
               //* Matrix_Rotate_X(0.2f)
@@ -484,9 +488,9 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, SPHERE);
         DrawVirtualObject("sphere");
-        
+
         // Desenhamos o modelo do coelho
-        model = Matrix_Translate(g_camera_position_c.x,g_camera_position_c.y-0.7f,g_camera_position_c.z-3.0f)*
+        model = Matrix_Translate(g_camera_position_c.x,g_camera_position_c.y-1.0,g_camera_position_c.z-3.0)*
                 Matrix_Rotate_Z(g_AngleZ + g_spaceship_inclination_z*(M_PI/2)*0.03)*
                 Matrix_Rotate_X(g_AngleX + g_spaceship_inclination_x*(M_PI/2)*0.03);
               //* Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
@@ -495,22 +499,22 @@ int main(int argc, char* argv[])
         DrawVirtualObject("bunny");
 
         // Desenhamos o plano do chão
-        model = 
+        model =
         Matrix_Translate(0.0f,-7.0f,0.0f) * Matrix_Scale(10.5f,0.0f,10.5f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
         DrawVirtualObject("plane");
 
         // Desenhamos o plano do ceu
-        model = 
+        model =
         Matrix_Translate(0.0f,7.0f,0.0f) * Matrix_Rotate_X(g_AngleX + M_PI) * Matrix_Scale(10.5f,0.0f,10.5f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
         DrawVirtualObject("plane");
 
         // Desenhamos o plano que fica atras da camera
-        model = 
-        Matrix_Translate(0.0f,0.0f,10.5f) 
+        model =
+        Matrix_Translate(0.0f,0.0f,10.5f)
         * Matrix_Rotate_X(g_AngleX - (M_PI/2))
         * Matrix_Rotate_Y(g_AngleY - (M_PI))
         * Matrix_Scale(10.5f,0.0f,7.0f);
@@ -519,37 +523,37 @@ int main(int argc, char* argv[])
         DrawVirtualObject("plane");
 
         // Desenhamos o plano que fica a frente da camera
-        model = 
-        Matrix_Translate(0.0f,0.0f,-10.5f) 
-        * Matrix_Rotate_X(g_AngleX + (M_PI/2)) 
+        model =
+        Matrix_Translate(0.0f,0.0f,-10.5f)
+        * Matrix_Rotate_X(g_AngleX + (M_PI/2))
         * Matrix_Scale(10.5f,0.0f,7.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
         DrawVirtualObject("plane");
 
         // Desenhamos o plano que fica a direita da camera
-        model = 
-        Matrix_Translate(10.5f,0.0f,0.0f) 
-        * Matrix_Rotate_Z(g_AngleZ - (3*M_PI/2)) 
-        * Matrix_Rotate_Y(g_AngleY - (M_PI/2)) 
+        model =
+        Matrix_Translate(10.5f,0.0f,0.0f)
+        * Matrix_Rotate_Z(g_AngleZ - (3*M_PI/2))
+        * Matrix_Rotate_Y(g_AngleY - (M_PI/2))
         * Matrix_Scale(10.5f,0.0f,7.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
         DrawVirtualObject("plane");
 
         // Desenhamos o plano que fica a direita da camera
-        model = 
-        Matrix_Translate(-10.5f,0.0f,0.0f) 
-        * Matrix_Rotate_Z(g_AngleZ + (3*M_PI/2)) 
-        * Matrix_Rotate_Y(g_AngleY + (M_PI/2)) 
+        model =
+        Matrix_Translate(-10.5f,0.0f,0.0f)
+        * Matrix_Rotate_Z(g_AngleZ + (3*M_PI/2))
+        * Matrix_Rotate_Y(g_AngleY + (M_PI/2))
         * Matrix_Scale(10.5f,0.0f,7.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
         DrawVirtualObject("plane");
 
         // Desenhamos o modelo da esfera
-        model = Matrix_Translate(-9.0f,-2.0f,3.0f)
-        * Matrix_Scale(5.0f,5.0f,5.0f)
+        model = Matrix_Translate(-8.0f,-2.0f,-5.0f)
+        * Matrix_Scale(3.0f,3.0f,3.0f)
         * Matrix_Rotate_Y(g_AngleY - (float)glfwGetTime() * 0.04f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANET);
@@ -558,9 +562,9 @@ int main(int argc, char* argv[])
         if(g_space_pressed){    //Se a tecla espaco foi pressionada.
             i=0;
             if(g_projectil_count<10){   //Se o numero de projeteis e menor que 10
-                while(g_player_projectils[i].x!=100.0f 
-                && g_player_projectils[i].y!=100.0f 
-                && g_player_projectils[i].z!=100.0f 
+                while(g_player_projectils[i].x!=100.0f
+                && g_player_projectils[i].y!=100.0f
+                && g_player_projectils[i].z!=100.0f
                 && i<10)    //Verifica se ainda existe espaco para alocar mais um projetil.
                     i++;
                 if(i<10){   //Se ainda existe espaco, acrescenta mais um projetil na lista que deve ser desenhada.
@@ -573,11 +577,11 @@ int main(int argc, char* argv[])
 
         if(g_projectil_count > 0){  //Se algum projetil precisa ser desenhado.
             for(int index = 0 ; index < g_projectil_count ; index++ ){  //Para cada posicao do array de projeteis.
-                if(g_player_projectils[index].x!=100.0f 
-                && g_player_projectils[index].y!=100.0f 
+                if(g_player_projectils[index].x!=100.0f
+                && g_player_projectils[index].y!=100.0f
                 && g_player_projectils[index].z!=100.0f){   //Se a posicao do array nao estiver vazia.
                     if(g_player_projectils[index].z  > -10.0f){ //Se o projetil ainda nao saiu dos limites da tela.
-                        
+
                         //Desenha o projetil na tela.
                         model = Matrix_Translate(g_player_projectils[index].x,g_player_projectils[index].y,g_player_projectils[index].z)
                         * Matrix_Scale(0.1f,0.1f,0.1f);
@@ -585,7 +589,7 @@ int main(int argc, char* argv[])
                         glUniform1i(object_id_uniform, PROJECTIL);
                         DrawVirtualObject("projectil");
                         //Salva a proxima posicao do projetil na tela.
-                        g_player_projectils[index].z -= 0.15f; 
+                        g_player_projectils[index].z -= 0.15f;
                     }
                     else{   //Se o projetil ja saiu dos limites da tela.
                         for(i = index; i < 9; i++){ //Reposiciona todas as entradas do array.
@@ -771,6 +775,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(program_id, "TextureImage0"), 0);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage1"), 1);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage2"), 2);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage3"), 3);
     glUseProgram(0);
 }
 
@@ -1257,7 +1262,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         float thetamax = 3.141592f/14;
         float thetamin = -thetamax;
 
-        if (g_CameraPhi > phimax)
+        /*if (g_CameraPhi > phimax)
             g_CameraPhi = phimax;
 
         if (g_CameraPhi < phimin)
@@ -1267,7 +1272,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
             g_CameraTheta = thetamax;
 
         if (g_CameraTheta < thetamin)
-            g_CameraTheta = thetamin;
+            g_CameraTheta = thetamin;*/
 
         // Atualizamos as variáveis globais para armazenar a posição atual do
         // cursor como sendo a última posição conhecida do cursor.
@@ -1407,12 +1412,12 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // Pressionando a tecla W, a flag global de movimentar para frente é ativada, e
     // só é desativada quando a tecla é liberada.
     if (key == GLFW_KEY_W && action == GLFW_PRESS)
-    {        
-       g_up = 1; 
+    {
+       g_up = 1;
     }
     if (key == GLFW_KEY_W && action == GLFW_RELEASE)
-    {        
-       g_up = 0; 
+    {
+       g_up = 0;
     }
     // Pressionando a tecla S, a flag global de movimentar para trás é ativada, e
     // só é desativada quando a tecla é liberada.
@@ -1456,7 +1461,7 @@ void mv_up(){
 void mv_down(){
     //g_camera_position_c.x += 0.2f*cos(g_CameraPhi)*sin(g_CameraTheta);
     //g_camera_position_c.z += 0.2f*sin(g_CameraPhi);
-    g_camera_position_c.y -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);    
+    g_camera_position_c.y -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
 }
 //Função para movimentar a câmera para a esquerda.
 void mv_left(){
