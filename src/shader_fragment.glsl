@@ -23,6 +23,7 @@ uniform mat4 projection;
 #define BUNNY  1
 #define PLANE  2
 #define PLANET 3
+#define ENV 5
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -123,7 +124,7 @@ void main()
         U = texcoords.x;
         V = texcoords.y;
     }
-    if ( object_id == PLANET )
+    else if ( object_id == PLANET )
     {
         // PREENCHA AQUI as coordenadas de textura da esfera, computadas com
         // projeção esférica EM COORDENADAS DO MODELO. Utilize como referência
@@ -148,6 +149,30 @@ void main()
         V = (phi+M_PI_2)/M_PI;
     }
 
+    else if ( object_id == ENV )
+    {
+        // PREENCHA AQUI as coordenadas de textura da esfera, computadas com
+        // projeção esférica EM COORDENADAS DO MODELO. Utilize como referência
+        // o slide 144 do documento "Aula_20_e_21_Mapeamento_de_Texturas.pdf".
+        // A esfera que define a projeção deve estar centrada na posição
+        // "bbox_center" definida abaixo.
+
+        // Você deve utilizar:
+        //   função 'length( )' : comprimento Euclidiano de um vetor
+        //   função 'atan( , )' : arcotangente. Veja https://en.wikipedia.org/wiki/Atan2.
+        //   função 'asin( )'   : seno inverso.
+        //   constante M_PI
+        //   variável position_model
+
+        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+        vec4 p_textura = bbox_center + normalize(position_model-bbox_center);
+        vec4 vec_textura = p_textura - bbox_center;
+        float teta = atan(vec_textura.x, vec_textura.z);
+        float phi = asin(vec_textura.y);
+
+        U = (teta+M_PI)/(2*M_PI);
+        V = (phi+M_PI_2)/M_PI;
+    }
     // Obtemos a refletância difusa a partir da leitura da imagem TextureImage0
 
 
@@ -160,7 +185,7 @@ void main()
     vec3 Kd0_stars = texture(TextureImage2, vec2(U,V)).rgb;
     vec3 Kd0_color = texture(TextureImage3, vec2(U,V)).rgb;
 
-    if(object_id == PLANE)
+    if(object_id == PLANE || object_id == ENV)
         color = Kd0_stars ;
     else if(object_id == BUNNY)
         color = Kd0_color *(lambert + 0.01);

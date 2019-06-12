@@ -308,6 +308,10 @@ int main(int argc, char* argv[])
     ComputeNormals(&projectilmodel);
     BuildTrianglesAndAddToVirtualScene(&projectilmodel);
 
+    ObjModel environmentmodel("../../data/env.obj");
+    ComputeNormals(&environmentmodel);
+    BuildTrianglesAndAddToVirtualScene(&environmentmodel);
+
     if ( argc > 1 )
     {
         ObjModel model(argv[1]);
@@ -383,10 +387,10 @@ int main(int argc, char* argv[])
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 172-182 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
         //glm::vec4 camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
-        glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,1.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
         //glm::vec4 camera_view_vector = glm::vec4(-x,-y,-z,0.0f);//camera_lookat_l - g_camera_position_c; // Vetor "view", sentido para onde a câmera está virada
+        glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,1.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
-         glm::vec4 camera_view_vector = camera_lookat_l - g_camera_position_c;
+        glm::vec4 camera_view_vector = camera_lookat_l - g_camera_position_c;
 
         if(g_up){
             mv_up();
@@ -442,7 +446,7 @@ int main(int argc, char* argv[])
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 190-193 do documento "Aula_09_Projecoes.pdf".
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -30.0f; // Posição do "far plane"
+        float farplane  = -2000.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -478,6 +482,8 @@ int main(int argc, char* argv[])
         #define PLANE  2
         #define PLANET 3
         #define PROJECTIL 4
+        #define ENV 5
+
 
         // Desenhamos o modelo da esfera
         model = Matrix_Translate(0.0f,0.0f,-3.0f)
@@ -491,15 +497,17 @@ int main(int argc, char* argv[])
 
         // Desenhamos o modelo do coelho
         model = Matrix_Translate(g_camera_position_c.x,g_camera_position_c.y-1.0,g_camera_position_c.z-3.0)*
-                Matrix_Rotate_Z(g_AngleZ + g_spaceship_inclination_z*(M_PI/2)*0.03)*
-                Matrix_Rotate_X(g_AngleX + g_spaceship_inclination_x*(M_PI/2)*0.03);
+                /*Matrix_Rotate_Z(g_AngleZ + g_spaceship_inclination_z*(M_PI/2)*0.03)*
+                Matrix_Rotate_X(g_AngleX + g_spaceship_inclination_x*(M_PI/2)*0.03);*/
+                Matrix_Rotate_X(-g_CameraPhi)*
+                Matrix_Rotate_Y(g_CameraTheta);
               //* Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, BUNNY);
         DrawVirtualObject("bunny");
 
         // Desenhamos o plano do chão
-        model =
+        /*model =
         Matrix_Translate(0.0f,-7.0f,0.0f) * Matrix_Scale(10.5f,0.0f,10.5f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
@@ -549,7 +557,7 @@ int main(int argc, char* argv[])
         * Matrix_Scale(10.5f,0.0f,7.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
-        DrawVirtualObject("plane");
+        DrawVirtualObject("plane");*/
 
         // Desenhamos o modelo da esfera
         model = Matrix_Translate(-8.0f,-2.0f,-5.0f)
@@ -558,6 +566,13 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANET);
         DrawVirtualObject("planet");
+
+        model = Matrix_Translate(0.0f,0.0f,0.0f)
+        * Matrix_Scale(15.0f,15.0f,15.0f)
+        * Matrix_Rotate_Y(g_AngleY - (float)glfwGetTime() * 0.04f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, ENV);
+        DrawVirtualObject("env");
 
         if(g_space_pressed){    //Se a tecla espaco foi pressionada.
             i=0;
