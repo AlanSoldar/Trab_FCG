@@ -171,7 +171,7 @@ bool g_MiddleMouseButtonPressed = false; // Análogo para botão do meio do mous
 // renderização.
 float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
-float g_CameraDistance = 11.5f; // Distância da câmera para a origem
+float g_CameraDistance = 30.0f; // Distância da câmera para a origem
 
 // Variáveis que controlam rotação do antebraço
 float g_ForearmAngleZ = 0.0f;
@@ -206,7 +206,7 @@ int g_up, g_down, g_right, g_left;
 
 float g_spaceship_inclination_x,g_spaceship_inclination_z;
 int g_space_pressed, g_projectil_count;
-glm::vec3 g_player_projectils[10];
+glm::vec4 g_player_projectils[10];
 
 int main(int argc, char* argv[])
 {
@@ -286,6 +286,8 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/tc-earth_nightmap_citylights.gif"); // TextureImage1
     LoadTextureImage("../../data/starry-sky.jpg"); // TextureImage2
     LoadTextureImage("../../data/red.jpg"); // TextureImage3
+    LoadTextureImage("../../data/blue.jpg"); // TextureImage4
+    LoadTextureImage("../../data/green.jpg"); // TextureImage5
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -347,7 +349,7 @@ int main(int argc, char* argv[])
     g_projectil_count = 0;
     int i,j;
     for(j = 0;j<10;j++)
-        g_player_projectils[j] = glm::vec3(100.0f,100.0f,100.0f);
+        g_player_projectils[j] = glm::vec4(100.0f,100.0f,100.0f,1.0f);
 
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -378,17 +380,19 @@ int main(int argc, char* argv[])
         float y = r*sin(g_CameraPhi);
         float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
         float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
+        float ship_distance = 0.1f;
 
-        /*if(first_iteration){*/
+        /*if(first_iteration){
             g_camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
             first_iteration = 0;
-        //}
+        }*/
 
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 172-182 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
         //glm::vec4 camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
         //glm::vec4 camera_view_vector = glm::vec4(-x,-y,-z,0.0f);//camera_lookat_l - g_camera_position_c; // Vetor "view", sentido para onde a câmera está virada
-        glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,1.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+        g_camera_position_c  = glm::vec4(x,y,z,1.0f);
+        glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
         glm::vec4 camera_view_vector = camera_lookat_l - g_camera_position_c;
 
@@ -486,8 +490,9 @@ int main(int argc, char* argv[])
 
 
         // Desenhamos o modelo da esfera
-        model = Matrix_Translate(0.0f,0.0f,-3.0f)
-              * Matrix_Rotate_Y(g_AngleY - (M_PI));
+        model = Matrix_Translate(0.0f,0.0f,-30.0f)
+              * Matrix_Rotate_Y(g_AngleY - (M_PI))
+              * Matrix_Scale(4.0f, 4.0f, 4.0f);
               //* Matrix_Rotate_Z(0.6f)
               //* Matrix_Rotate_X(0.2f)
               //* Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
@@ -495,81 +500,32 @@ int main(int argc, char* argv[])
         glUniform1i(object_id_uniform, SPHERE);
         DrawVirtualObject("sphere");
 
-        // Desenhamos o modelo do coelho
-        model = Matrix_Translate(g_camera_position_c.x,g_camera_position_c.y-1.0,g_camera_position_c.z-3.0)*
-                /*Matrix_Rotate_Z(g_AngleZ + g_spaceship_inclination_z*(M_PI/2)*0.03)*
-                Matrix_Rotate_X(g_AngleX + g_spaceship_inclination_x*(M_PI/2)*0.03);*/
-                Matrix_Rotate_X(-g_CameraPhi)*
-                Matrix_Rotate_Y(g_CameraTheta);
-              //* Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
+        // Desenhamos o modelo da nave aliada
+        //posição da camera + um deslocamento vetorizado pelo vetor view da camera multiplicado pela distancia desejada entre a nave e a camera
+        glm::vec3 ship_position = glm::vec3 (g_camera_position_c.x+camera_view_vector.x*ship_distance,
+                                             g_camera_position_c.y+(camera_view_vector.y*ship_distance)-1.0f,
+                                             g_camera_position_c.z+camera_view_vector.z*ship_distance);
+        model = Matrix_Translate(ship_position.x, ship_position.y, ship_position.z)*
+                Matrix_Rotate_X(-g_CameraPhi)*  //rotação de com angulo x fixo baseado no angulo da camera
+                Matrix_Rotate_Y(g_CameraTheta); //rotação de com angulo y fixo baseado no angulo da camera
+
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, BUNNY);
         DrawVirtualObject("bunny");
 
-        // Desenhamos o plano do chão
-        /*model =
-        Matrix_Translate(0.0f,-7.0f,0.0f) * Matrix_Scale(10.5f,0.0f,10.5f);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, PLANE);
-        DrawVirtualObject("plane");
-
-        // Desenhamos o plano do ceu
-        model =
-        Matrix_Translate(0.0f,7.0f,0.0f) * Matrix_Rotate_X(g_AngleX + M_PI) * Matrix_Scale(10.5f,0.0f,10.5f);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, PLANE);
-        DrawVirtualObject("plane");
-
-        // Desenhamos o plano que fica atras da camera
-        model =
-        Matrix_Translate(0.0f,0.0f,10.5f)
-        * Matrix_Rotate_X(g_AngleX - (M_PI/2))
-        * Matrix_Rotate_Y(g_AngleY - (M_PI))
-        * Matrix_Scale(10.5f,0.0f,7.0f);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, PLANE);
-        DrawVirtualObject("plane");
-
-        // Desenhamos o plano que fica a frente da camera
-        model =
-        Matrix_Translate(0.0f,0.0f,-10.5f)
-        * Matrix_Rotate_X(g_AngleX + (M_PI/2))
-        * Matrix_Scale(10.5f,0.0f,7.0f);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, PLANE);
-        DrawVirtualObject("plane");
-
-        // Desenhamos o plano que fica a direita da camera
-        model =
-        Matrix_Translate(10.5f,0.0f,0.0f)
-        * Matrix_Rotate_Z(g_AngleZ - (3*M_PI/2))
-        * Matrix_Rotate_Y(g_AngleY - (M_PI/2))
-        * Matrix_Scale(10.5f,0.0f,7.0f);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, PLANE);
-        DrawVirtualObject("plane");
-
-        // Desenhamos o plano que fica a direita da camera
-        model =
-        Matrix_Translate(-10.5f,0.0f,0.0f)
-        * Matrix_Rotate_Z(g_AngleZ + (3*M_PI/2))
-        * Matrix_Rotate_Y(g_AngleY + (M_PI/2))
-        * Matrix_Scale(10.5f,0.0f,7.0f);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, PLANE);
-        DrawVirtualObject("plane");*/
 
         // Desenhamos o modelo da esfera
-        model = Matrix_Translate(-8.0f,-2.0f,-5.0f)
-        * Matrix_Scale(3.0f,3.0f,3.0f)
+        model = Matrix_Translate(-30.0f,-2.0f,-5.0f)
+        * Matrix_Scale(12.0f,12.0f,12.0f)
         * Matrix_Rotate_Y(g_AngleY - (float)glfwGetTime() * 0.04f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANET);
         DrawVirtualObject("planet");
 
+        // Desenhamos o modelo do espaço esférico
         model = Matrix_Translate(0.0f,0.0f,0.0f)
-        * Matrix_Scale(15.0f,15.0f,15.0f)
-        * Matrix_Rotate_Y(g_AngleY - (float)glfwGetTime() * 0.04f);
+        * Matrix_Scale(40.0f,40.0f,40.0f)
+        * Matrix_Rotate_Y(g_AngleY - (float)glfwGetTime() * 0.01f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, ENV);
         DrawVirtualObject("env");
@@ -583,7 +539,7 @@ int main(int argc, char* argv[])
                 && i<10)    //Verifica se ainda existe espaco para alocar mais um projetil.
                     i++;
                 if(i<10){   //Se ainda existe espaco, acrescenta mais um projetil na lista que deve ser desenhada.
-                    g_player_projectils[i] = glm::vec3(g_camera_position_c.x,g_camera_position_c.y-0.7f,(g_camera_position_c.z-3.0f));
+                    g_player_projectils[i] = glm::vec4(ship_position.x, ship_position.y, ship_position.z, 1.0f);
                     g_projectil_count += 1;
                 }
             }
@@ -599,18 +555,22 @@ int main(int argc, char* argv[])
 
                         //Desenha o projetil na tela.
                         model = Matrix_Translate(g_player_projectils[index].x,g_player_projectils[index].y,g_player_projectils[index].z)
-                        * Matrix_Scale(0.1f,0.1f,0.1f);
+                        *Matrix_Rotate_X(-g_CameraPhi)  //rotação de com angulo x fixo baseado no angulo da camera
+                        *Matrix_Rotate_Y(g_CameraTheta) //rotação de com angulo y fixo baseado no angulo da camera
+                        * Matrix_Scale(0.2f,0.2f,0.2f);
                         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
                         glUniform1i(object_id_uniform, PROJECTIL);
                         DrawVirtualObject("projectil");
                         //Salva a proxima posicao do projetil na tela.
-                        g_player_projectils[index].z -= 0.15f;
+
+                        glm::vec4 projectile_direction = glm::vec4(camera_view_vector.x, camera_view_vector.y+2.0f, camera_view_vector.z, 0.0f);
+                        g_player_projectils[index] += projectile_direction*0.15f;
                     }
                     else{   //Se o projetil ja saiu dos limites da tela.
                         for(i = index; i < 9; i++){ //Reposiciona todas as entradas do array.
                             g_player_projectils[i]=g_player_projectils[i+1];
                         }
-                        g_player_projectils[9]=glm::vec3(100.0f,100.0f,100.0f); //Sinaliza que a ultima posicao do array esta livre.
+                        g_player_projectils[9]=glm::vec4(100.0f,100.0f,100.0f, 1.0f); //Sinaliza que a ultima posicao do array esta livre.
                         g_projectil_count-=1;   //Decrementa o contador de projeteis.
                     }
                 }
@@ -791,6 +751,8 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(program_id, "TextureImage1"), 1);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage2"), 2);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage3"), 3);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage4"), 4);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage5"), 5);
     glUseProgram(0);
 }
 

@@ -23,6 +23,7 @@ uniform mat4 projection;
 #define BUNNY  1
 #define PLANE  2
 #define PLANET 3
+#define PROJECTIL 4
 #define ENV 5
 uniform int object_id;
 
@@ -35,6 +36,8 @@ uniform sampler2D TextureImage0;
 uniform sampler2D TextureImage1;
 uniform sampler2D TextureImage2;
 uniform sampler2D TextureImage3;
+uniform sampler2D TextureImage4;
+uniform sampler2D TextureImage5;
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec3 color;
@@ -118,6 +121,22 @@ void main()
         U = (position_model.x-minx)/(maxx-minx);
         V = (position_model.y-miny)/(maxy-miny);
     }
+    else if ( object_id == PROJECTIL )
+    {
+        //mesmo mapeamento do bunny
+
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.x-minx)/(maxx-minx);
+        V = (position_model.y-miny)/(maxy-miny);
+    }
     else if ( object_id == PLANE )
     {
         // Coordenadas de textura do plano, obtidas do arquivo OBJ.
@@ -183,12 +202,22 @@ void main()
     vec3 Kd0_dia = texture(TextureImage0, vec2(U,V)).rgb;
     vec3 Kd0_noite = texture(TextureImage1, vec2(U,V)).rgb;
     vec3 Kd0_stars = texture(TextureImage2, vec2(U,V)).rgb;
-    vec3 Kd0_color = texture(TextureImage3, vec2(U,V)).rgb;
+    vec3 Kd0_red = texture(TextureImage3, vec2(U,V)).rgb;
+    vec3 Kd0_blue = texture(TextureImage4, vec2(U,V)).rgb;
+    vec3 Kd0_green = texture(TextureImage5, vec2(U,V)).rgb;
 
-    if(object_id == PLANE || object_id == ENV)
+    if(object_id == ENV)
         color = Kd0_stars ;
+
     else if(object_id == BUNNY)
-        color = Kd0_color *(lambert + 0.01);
+        color = Kd0_blue *(lambert + 0.01);
+
+    else if(object_id == SPHERE)
+        color = Kd0_red *(lambert + 0.01);
+
+    else if(object_id == PROJECTIL)
+        color = Kd0_green *(lambert + 0.01);
+
     else
         color = Kd0_dia * (lambert + 0.01) + Kd0_noite * max(0,(1-lambert*8))+vec3(0.03f,0.01f,0.0f);
                                                                              //Termo que deixa a iluminacao mais alaranjada.
