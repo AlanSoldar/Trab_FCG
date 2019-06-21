@@ -187,6 +187,8 @@ bool g_UsePerspectiveProjection = true;
 // Variável que controla se o texto informativo será mostrado na tela.
 bool g_ShowInfoText = true;
 
+bool g_LookAt = true;
+
 // Variáveis que definem um programa de GPU (shaders). Veja função LoadShadersFromFiles().
 GLuint vertex_shader_id;
 GLuint fragment_shader_id;
@@ -202,11 +204,14 @@ GLint bbox_max_uniform;
 GLuint g_NumLoadedTextures = 0;
 
 glm::vec4 g_camera_position_c;
+glm::vec4 g_camera_lookat_l;
 int g_up, g_down, g_right, g_left;
 
-float g_spaceship_inclination_x,g_spaceship_inclination_z;
+
+float g_spaceship_inclination_x,g_spaceship_inclination_y;
 int g_space_pressed, g_projectil_count;
 glm::vec4 g_player_projectils[10];
+glm::vec4 g_enemies[10];
 
 int main(int argc, char* argv[])
 {
@@ -344,7 +349,7 @@ int main(int argc, char* argv[])
     g_right = 0;
     g_left = 0;
     g_spaceship_inclination_x = 0.0f;
-    g_spaceship_inclination_z = 0.0f;
+    g_spaceship_inclination_y = 0.0f;
     g_space_pressed = 0;
     g_projectil_count = 0;
     int i,j;
@@ -382,67 +387,78 @@ int main(int argc, char* argv[])
         float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
         float ship_distance = 0.1f;
 
-        /*if(first_iteration){
-            g_camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
-            first_iteration = 0;
-        }*/
+        glm::vec4 camera_position_c;
+        glm::vec4 camera_lookat_l;
+        glm::vec4 camera_up_vector; // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+        glm::vec4 camera_view_vector;
 
-        // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
-        // Veja slides 172-182 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
-        //glm::vec4 camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
-        //glm::vec4 camera_view_vector = glm::vec4(-x,-y,-z,0.0f);//camera_lookat_l - g_camera_position_c; // Vetor "view", sentido para onde a câmera está virada
-        g_camera_position_c  = glm::vec4(x,y,z,1.0f);
-        glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
-        glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
-        glm::vec4 camera_view_vector = camera_lookat_l - g_camera_position_c;
+        if (g_LookAt)
+        {
+            // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
+            // Veja slides 172-182 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
+            //glm::vec4 camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
+            //glm::vec4 camera_view_vector = glm::vec4(-x,-y,-z,0.0f);//camera_lookat_l - g_camera_position_c; // Vetor "view", sentido para onde a câmera está virada
+            camera_position_c  = glm::vec4(x,y,z,1.0f);
+            camera_lookat_l = glm::vec4(0.0f,0.0f,0.0f,1.0f);
+            camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+            camera_view_vector = camera_lookat_l - camera_position_c;
+        }
+        else
+        {
+            camera_position_c  = g_camera_position_c;
+            camera_lookat_l = g_camera_lookat_l;
+            camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+            camera_view_vector = camera_lookat_l - g_camera_position_c;
 
+        }
         if(g_up){
             mv_up();
-            g_spaceship_inclination_x += 1.0f;
-            if((int) g_spaceship_inclination_x > 3)
-                g_spaceship_inclination_x = 3.0f;
-        }else
+            /*g_spaceship_inclination_x += 0.2f;
+            if((int) g_spaceship_inclination_x >= 1)
+                g_spaceship_inclination_x = 1.0f;*/
+        }
+        /*else
         {
             if((int) g_spaceship_inclination_x > 0)
-                g_spaceship_inclination_x -= 1.0f;
-        }
+                g_spaceship_inclination_x -= 0.2f;
+        }*/
         if(g_down){
             mv_down();
-            g_spaceship_inclination_x -= 1.0f;
-            if((int) g_spaceship_inclination_x < -3)
-                g_spaceship_inclination_x = -3.0f;
+            /*g_spaceship_inclination_x -= 0.2f;
+            if((int) g_spaceship_inclination_x <= -1)
+                g_spaceship_inclination_x = -1.0f;*/
         }
-        else
+        /*else
         {
             if((int) g_spaceship_inclination_x < 0)
-                g_spaceship_inclination_x += 1.0f;
-        }
+                g_spaceship_inclination_x += 0.2f;
+        }*/
         if(g_left){
             mv_left();
-            g_spaceship_inclination_z += 1.0f;
-            if((int) g_spaceship_inclination_z > 3)
-                g_spaceship_inclination_z = 3.0f;
+            /*g_spaceship_inclination_y += 0.2f;
+            if((int) g_spaceship_inclination_y >= 1)
+                g_spaceship_inclination_y = 1.0f;*/
         }
-        else
+        /*else
         {
-            if((int) g_spaceship_inclination_z > 0)
-                g_spaceship_inclination_z -= 1.0f;
-        }
+            if((int) g_spaceship_inclination_y > 0)
+                g_spaceship_inclination_y -= 0.2f;
+        }*/
         if(g_right){
             mv_right();
-            g_spaceship_inclination_z -= 1.0f;
-            if((int) g_spaceship_inclination_z < -3)
-                g_spaceship_inclination_z = -3.0f;
+            /*g_spaceship_inclination_y -= 0.2f;
+            if((int) g_spaceship_inclination_y <= -1)
+                g_spaceship_inclination_y = -1.0f;*/
         }
-        else
+       /* else
         {
-            if((int) g_spaceship_inclination_z < 0)
-                g_spaceship_inclination_z += 1.0f;
-        }
+            if((int) g_spaceship_inclination_y < 0.1)
+                g_spaceship_inclination_y += 0.2f;
+        }*/
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slide 186 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
-        glm::mat4 view = Matrix_Camera_View(g_camera_position_c, camera_view_vector, camera_up_vector);
+        glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
 
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
@@ -488,26 +504,31 @@ int main(int argc, char* argv[])
         #define PROJECTIL 4
         #define ENV 5
 
+        int n_enemies = 10;
+        for (int j = -1; j < 2; j++)
+            for (int i = 0; i < 3; i++)
+            {
+            // Desenhamos o modelo da esfera
+            model = Matrix_Translate(j*4,i*3,-30.0f)
+                  * Matrix_Rotate_Y(g_AngleY - (M_PI))
+                  * Matrix_Scale(4.0f, 4.0f, 4.0f);
+                  //* Matrix_Rotate_Z(0.6f)
+                  //* Matrix_Rotate_X(0.2f)
+                  //* Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
+            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(object_id_uniform, SPHERE);
+            DrawVirtualObject("sphere");
+            }
 
-        // Desenhamos o modelo da esfera
-        model = Matrix_Translate(0.0f,0.0f,-30.0f)
-              * Matrix_Rotate_Y(g_AngleY - (M_PI))
-              * Matrix_Scale(4.0f, 4.0f, 4.0f);
-              //* Matrix_Rotate_Z(0.6f)
-              //* Matrix_Rotate_X(0.2f)
-              //* Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, SPHERE);
-        DrawVirtualObject("sphere");
 
         // Desenhamos o modelo da nave aliada
         //posição da camera + um deslocamento vetorizado pelo vetor view da camera multiplicado pela distancia desejada entre a nave e a camera
-        glm::vec3 ship_position = glm::vec3 (g_camera_position_c.x+camera_view_vector.x*ship_distance,
-                                             g_camera_position_c.y+(camera_view_vector.y*ship_distance)-1.0f,
-                                             g_camera_position_c.z+camera_view_vector.z*ship_distance);
+        glm::vec3 ship_position = glm::vec3 (g_TorsoPositionX+camera_position_c.x+camera_view_vector.x*ship_distance,
+                                             g_TorsoPositionY+camera_position_c.y+(camera_view_vector.y*ship_distance)-1.0f,
+                                             camera_position_c.z+camera_view_vector.z*ship_distance);
         model = Matrix_Translate(ship_position.x, ship_position.y, ship_position.z)*
-                Matrix_Rotate_X(-g_CameraPhi)*  //rotação de com angulo x fixo baseado no angulo da camera
-                Matrix_Rotate_Y(g_CameraTheta); //rotação de com angulo y fixo baseado no angulo da camera
+                Matrix_Rotate_X(-g_CameraPhi + g_spaceship_inclination_x)*  //rotação de com angulo x fixo baseado no angulo da camera
+                Matrix_Rotate_Y(g_CameraTheta + g_spaceship_inclination_y); //rotação de com angulo y fixo baseado no angulo da camera
 
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, BUNNY);
@@ -525,7 +546,7 @@ int main(int argc, char* argv[])
         // Desenhamos o modelo do espaço esférico
         model = Matrix_Translate(0.0f,0.0f,0.0f)
         * Matrix_Scale(40.0f,40.0f,40.0f)
-        * Matrix_Rotate_Y(g_AngleY - (float)glfwGetTime() * 0.01f);
+        * Matrix_Rotate_Y(4.5f + g_AngleY - (float)glfwGetTime() * 0.01f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, ENV);
         DrawVirtualObject("env");
@@ -1232,14 +1253,14 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         g_CameraPhi   += 0.01f*dy;
 
         // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-        float phimax = 0.0f;//3.141592f/16;
-        float phimin = -3.141592f/16;
+        float phimin = -3.141592f/6;
+        float phimax = -phimin;
 
         // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-        float thetamax = 3.141592f/14;
+        float thetamax = 3.141592f/6;
         float thetamin = -thetamax;
 
-        /*if (g_CameraPhi > phimax)
+        if (g_CameraPhi > phimax)
             g_CameraPhi = phimax;
 
         if (g_CameraPhi < phimin)
@@ -1249,12 +1270,45 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
             g_CameraTheta = thetamax;
 
         if (g_CameraTheta < thetamin)
-            g_CameraTheta = thetamin;*/
+            g_CameraTheta = thetamin;
 
         // Atualizamos as variáveis globais para armazenar a posição atual do
         // cursor como sendo a última posição conhecida do cursor.
         g_LastCursorPosX = xpos;
         g_LastCursorPosY = ypos;
+    }
+    else if (g_LeftMouseButtonPressed && !g_LookAt)
+    {
+        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
+        float dx = xpos - g_LastCursorPosX;
+        float dy = ypos - g_LastCursorPosY;
+
+        // Atualizamos parâmetros da câmera com os deslocamentos
+        g_CameraTheta -= 0.01f*dx;
+        g_CameraPhi   += 0.01f*dy;
+
+        // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
+        float phimax = 3.141592f/2;
+        float phimin = -phimax;
+
+        if (g_CameraPhi > phimax)
+            g_CameraPhi = phimax;
+
+        if (g_CameraPhi < phimin)
+            g_CameraPhi = phimin;
+
+        // Atualizamos as variáveis globais para armazenar a posição atual do
+        // cursor como sendo a última posição conhecida do cursor.
+        g_LastCursorPosX = xpos;
+        g_LastCursorPosY = ypos;
+
+        float r = g_CameraDistance;
+        float y = r*sin(g_CameraPhi);
+        float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
+        float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
+
+        g_camera_lookat_l =  glm::vec4(x,y,z,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+
     }
 
     if (g_RightMouseButtonPressed)
@@ -1350,13 +1404,13 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
     {
-        g_AngleX = 0.0f;
+        /*g_AngleX = 0.0f;
         g_AngleY = 0.0f;
         g_AngleZ = 0.0f;
         g_ForearmAngleX = 0.0f;
         g_ForearmAngleZ = 0.0f;
         g_TorsoPositionX = 0.0f;
-        g_TorsoPositionY = 0.0f;
+        g_TorsoPositionY = 0.0f;*/
 
         g_space_pressed = 1;
     }
@@ -1365,6 +1419,11 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_P && action == GLFW_PRESS)
     {
         g_UsePerspectiveProjection = true;
+    }
+
+    if (key == GLFW_KEY_F && action == GLFW_PRESS)
+    {
+        g_LookAt = !g_LookAt;
     }
 
     // Se o usuário apertar a tecla O, utilizamos projeção ortográfica.
@@ -1390,7 +1449,9 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // só é desativada quando a tecla é liberada.
     if (key == GLFW_KEY_W && action == GLFW_PRESS)
     {
-       g_up = 1;
+        g_up = 1;
+
+
     }
     if (key == GLFW_KEY_W && action == GLFW_RELEASE)
     {
@@ -1401,6 +1462,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_S && action == GLFW_PRESS)
     {
         g_down = 1;
+
     }
     if (key == GLFW_KEY_S && action == GLFW_RELEASE)
     {
@@ -1410,7 +1472,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // só é desativada quando a tecla é liberada.
     if (key == GLFW_KEY_A && action == GLFW_PRESS)
     {
-       g_left = 1;
+        g_left = 1;
+
     }
     if (key == GLFW_KEY_A && action == GLFW_RELEASE)
     {
@@ -1420,7 +1483,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // só é desativada quando a tecla é liberada.
     if (key == GLFW_KEY_D && action == GLFW_PRESS)
     {
-       g_right = 1;
+        g_right = 1;
+
     }
     if (key == GLFW_KEY_D && action == GLFW_RELEASE)
     {
@@ -1432,25 +1496,33 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 void mv_up(){
     //g_camera_position_c.x -= 0.2f*cos(g_CameraPhi)*sin(g_CameraTheta);
     //g_camera_position_c.z -= 0.2f*sin(g_CameraPhi);
-    g_camera_position_c.y += 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+    //g_camera_position_c.y += 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+    if (g_TorsoPositionY < 2.0f)
+        g_TorsoPositionY += 0.2f;
 }
 //Função para movimentar a câmera para trás.
 void mv_down(){
     //g_camera_position_c.x += 0.2f*cos(g_CameraPhi)*sin(g_CameraTheta);
     //g_camera_position_c.z += 0.2f*sin(g_CameraPhi);
-    g_camera_position_c.y -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+    //g_camera_position_c.y -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+    if (g_TorsoPositionY > -0.2f)
+        g_TorsoPositionY -= 0.2f;
 }
 //Função para movimentar a câmera para a esquerda.
 void mv_left(){
     //g_camera_position_c.z += 0.2f*cos(g_CameraPhi)*sin(g_CameraTheta);
     //g_camera_position_c.y = g_camera_position_c.y;
-    g_camera_position_c.x -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+    //g_camera_position_c.x -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+    if (g_TorsoPositionX > -1.5f)
+        g_TorsoPositionX -= 0.2f;
 }
 //Função para movimentar a câmera para a direita.
 void mv_right(){
     //g_camera_position_c.z -= 0.2f*cos(g_CameraPhi)*sin(g_CameraTheta);
     //g_camera_position_c.y = g_camera_position_c.y;
-    g_camera_position_c.x += 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+    //g_camera_position_c.x += 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
+    if (g_TorsoPositionX < 1.5f)
+        g_TorsoPositionX += 0.2f;
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal
