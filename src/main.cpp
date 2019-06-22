@@ -109,8 +109,7 @@ void TextRendering_PrintMatrixVectorProductDivW(GLFWwindow* window, glm::mat4 M,
 // Funções abaixo renderizam como texto na janela OpenGL algumas matrizes e
 // outras informações do programa. Definidas após main().
 void TextRendering_ShowModelViewProjection(GLFWwindow* window, glm::mat4 projection, glm::mat4 view, glm::mat4 model, glm::vec4 p_model);
-void TextRendering_ShowEulerAngles(GLFWwindow* window);
-void TextRendering_ShowProjection(GLFWwindow* window);
+void TextRendering_PlayerLifes(GLFWwindow* window);
 void TextRendering_ShowFramesPerSecond(GLFWwindow* window);
 
 // Funções callback para comunicação com o sistema operacional e interação do
@@ -128,6 +127,9 @@ void mv_left();
 void mv_right();
 void check_projectiles_hit();
 void verify_enemies_restore();
+void check_enemies_projectiles_hit(glm::vec3 player_spaceship_position);
+void render_enemies_projectiles();
+void render_enemies();
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -183,9 +185,6 @@ float g_ForearmAngleX = 0.0f;
 float g_TorsoPositionX = 0.0f;
 float g_TorsoPositionY = 0.0f;
 
-// Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
-bool g_UsePerspectiveProjection = true;
-
 // Variável que controla se o texto informativo será mostrado na tela.
 bool g_ShowInfoText = true;
 
@@ -216,6 +215,12 @@ glm::vec4 g_player_projectils[10];
 glm::vec4 g_enemies[10];
 
 #define NUM_ENEMIES 20
+#define SPHERE 0
+#define BUNNY  1
+#define PLANE  2
+#define PLANET 3
+#define PROJECTIL 4
+#define ENV 5
 
 int g_enemies_alive[NUM_ENEMIES];   //Array usado para controlar quais inimigos ainda estao vivos.
 int g_difficulty;                   //Variavel que controla quantos inimigos serao desenhados na tela.
@@ -227,10 +232,15 @@ float g_enemies_max_y[NUM_ENEMIES];
 float g_enemies_min_z[NUM_ENEMIES];
 float g_enemies_max_z[NUM_ENEMIES];
 
+//Array para salvar a posicao dos projeteis dos inimigos.
+glm::vec4 g_enemies_projectils[NUM_ENEMIES];
+int g_enemy_projectil_count;
 
 float g_delta_time = 0.0f;
 float g_previous_time = 0.0f;
 float g_time_now = 0.0f;
+
+int g_player_lifes;
 
 int main(int argc, char* argv[])
 {
@@ -376,10 +386,15 @@ int main(int argc, char* argv[])
     for(j = 0;j<10;j++)
         g_player_projectils[j] = glm::vec4(100.0f,100.0f,100.0f,1.0f);
 
+    for(j = 0;j<NUM_ENEMIES;j++)
+        g_enemies_projectils[j] = glm::vec4(100.0f,100.0f,100.0f,1.0f);
+
     // inicializa o vetor que indica os inimigos vivos.
     for(i = 0; i < NUM_ENEMIES; i++)
         g_enemies_alive[i] = 1;
     
+    g_player_lifes = 5;
+
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
@@ -495,26 +510,12 @@ int main(int argc, char* argv[])
         float nearplane = -0.1f;  // Posição do "near plane"
         float farplane  = -2000.0f; // Posição do "far plane"
 
-        if (g_UsePerspectiveProjection)
-        {
-            // Projeção Perspectiva.
-            // Para definição do field of view (FOV), veja slide 227 do documento "Aula_09_Projecoes.pdf".
-            float field_of_view = 3.141592 / 3.0f;
-            projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
-        }
-        else
-        {
-            // Projeção Ortográfica.
-            // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
-            // PARA PROJEÇÃO ORTOGRÁFICA veja slide 236 do documento "Aula_09_Projecoes.pdf".
-            // Para simular um "zoom" ortográfico, computamos o valor de "t"
-            // utilizando a variável g_CameraDistance.
-            float t = 1.5f*g_CameraDistance/2.5f;
-            float b = -t;
-            float r = t*g_ScreenRatio;
-            float l = -r;
-            projection = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
-        }
+
+        // Projeção Perspectiva.
+        // Para definição do field of view (FOV), veja slide 227 do documento "Aula_09_Projecoes.pdf".
+        float field_of_view = 3.141592 / 3.0f;
+        projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
+
 
         glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
 
@@ -524,40 +525,17 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
         glUniformMatrix4fv(projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
-        #define SPHERE 0
-        #define BUNNY  1
-        #define PLANE  2
-        #define PLANET 3
-        #define PROJECTIL 4
-        #define ENV 5
-        
-        int counter=0;
-        int n_enemies = 10;
-        for (j = -1; j < 2; j++)
-            for (i = -1; i < g_difficulty-1; i++)
-            {
-                if(g_enemies_alive[counter] == 1){
-                    // Desenhamos o modelo da esfera
-                    model = Matrix_Translate(j*8,i*3+i,-30.0f)
-                        * Matrix_Rotate_Y(g_AngleY - (M_PI))
-                        * Matrix_Scale(4.0f, 4.0f, 4.0f);
-                        //* Matrix_Rotate_Z(0.6f)
-                        //* Matrix_Rotate_X(0.2f)
-                        //* Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
-                    glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-                    glUniform1i(object_id_uniform, SPHERE);
-                    DrawVirtualObject("sphere");
 
-                    //Define os limites das naves inimigas
-                    g_enemies_min_x[counter] = (float) j*8 + 1.7f;
-                    g_enemies_min_y[counter] = (float) i*3+i + 1.7f;
-                    g_enemies_min_z[counter] = -30.0f + 1.7f;
-                    g_enemies_max_x[counter] = (float) j*8 - 1.7f;
-                    g_enemies_max_y[counter] = (float) i*3+i - 1.7f;
-                    g_enemies_max_z[counter] = -30.0f - 1.7f;
-                }
-                counter++;
-            }
+        
+
+
+        
+        render_enemies();
+        render_enemies_projectiles();
+
+
+
+
 
 
         // Desenhamos o modelo da nave aliada
@@ -617,7 +595,7 @@ int main(int argc, char* argv[])
                         model = Matrix_Translate(g_player_projectils[index].x,g_player_projectils[index].y,g_player_projectils[index].z)
                         *Matrix_Rotate_X(-g_CameraPhi)  //rotação de com angulo x fixo baseado no angulo da camera
                         *Matrix_Rotate_Y(g_CameraTheta) //rotação de com angulo y fixo baseado no angulo da camera
-                        * Matrix_Scale(0.2f,0.2f,0.2f);
+                        * Matrix_Scale(0.4f,0.4f,0.4f);
                         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
                         glUniform1i(object_id_uniform, PROJECTIL);
                         DrawVirtualObject("projectil");
@@ -636,7 +614,11 @@ int main(int argc, char* argv[])
                 }
             }
         }
-     
+
+        check_enemies_projectiles_hit(ship_position);
+        if(g_player_lifes==0){
+           glfwSetWindowShouldClose(window, GL_TRUE);
+        }
         check_projectiles_hit();
         verify_enemies_restore();
 
@@ -647,12 +629,7 @@ int main(int argc, char* argv[])
         //glm::vec4 p_model(0.5f, 0.5f, 0.5f, 1.0f);
         //TextRendering_ShowModelViewProjection(window, projection, view, model, p_model);
 
-        // Imprimimos na tela os ângulos de Euler que controlam a rotação do
-        // terceiro cubo.
-        TextRendering_ShowEulerAngles(window);
-
-        // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
-        TextRendering_ShowProjection(window);
+        TextRendering_PlayerLifes(window);
 
         // Imprimimos na tela informação sobre o número de quadros renderizados
         // por segundo (frames per second).
@@ -700,6 +677,27 @@ void check_projectiles_hit(){
     }
 }
 
+void check_enemies_projectiles_hit(glm::vec3 player_spaceship_position){
+    int counter = 0;
+    int i = 0;
+
+    for(i = 0; i < g_difficulty*3; i++){
+        glm::vec4 projectil_position = g_enemies_projectils[i];
+
+        if( projectil_position.x != 100.0f &&
+            projectil_position.y != 100.0f &&
+            projectil_position.z != 100.0f){
+                if( ((player_spaceship_position.x-1.8f)<=projectil_position.x) && ((player_spaceship_position.x+1.8f)>=projectil_position.x) &&
+                    ((player_spaceship_position.y-0.5f)<=projectil_position.y) && ((player_spaceship_position.y+0.5f)>=projectil_position.y) &&
+                    ((player_spaceship_position.z-1.8f)<=projectil_position.z) && ((player_spaceship_position.z+1.8f)>=projectil_position.z))
+                    {
+                        //g_enemies_projectils[i] = glm::vec4(100.0f,100.0f,100.0f,1.0f);
+                        g_player_lifes--;
+                    }
+        }
+    }
+}
+
 void verify_enemies_restore(){
     int all_spaceships_destroyed = 1;
     for(int i = 0; i<g_difficulty*3; i++){
@@ -714,6 +712,75 @@ void verify_enemies_restore(){
                 g_difficulty++;
                 for(int i = 0; i<g_difficulty*3; i++){
                     g_enemies_alive[i] = 1;
+                }
+                for(int j = 0;j<NUM_ENEMIES;j++)
+                    g_enemies_projectils[j] = glm::vec4(100.0f,100.0f,100.0f,1.0f);
+            }
+        }
+    }
+}
+
+void render_enemies(){
+    glm::mat4 model = Matrix_Identity();
+    int counter=0;
+        for (int j = -1; j < 2; j++)
+            for (int i = -1; i < g_difficulty-1; i++)
+            {
+                if(g_enemies_alive[counter] == 1){
+                    // Desenhamos o modelo da esfera
+                    model = Matrix_Translate(j*8,i*3+i,-30.0f)
+                        * Matrix_Rotate_Y(g_AngleY - (M_PI))
+                        * Matrix_Scale(4.0f, 4.0f, 4.0f);
+                        //* Matrix_Rotate_Z(0.6f)
+                        //* Matrix_Rotate_X(0.2f)
+                        //* Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
+                    glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(object_id_uniform, SPHERE);
+                    DrawVirtualObject("sphere");
+
+                    //Define os limites das naves inimigas
+                    g_enemies_min_x[counter] = (float) j*8 + 1.7f;
+                    g_enemies_min_y[counter] = (float) i*3+i + 1.7f;
+                    g_enemies_min_z[counter] = -30.0f + 1.7f;
+                    g_enemies_max_x[counter] = (float) j*8 - 1.7f;
+                    g_enemies_max_y[counter] = (float) i*3+i - 1.7f;
+                    g_enemies_max_z[counter] = -30.0f - 1.7f;
+                }
+                counter++;
+            }
+}
+
+void render_enemies_projectiles(){
+    glm::mat4 model = Matrix_Identity();
+    int i=0;
+    while(i<(g_difficulty*3)){
+            if(g_enemies_projectils[i].x==100.0f
+            && g_enemies_projectils[i].y==100.0f
+            && g_enemies_projectils[i].z==100.0f){
+                if(g_enemies_alive[i] == 1)
+                    g_enemies_projectils[i] = glm::vec4(g_enemies_min_x[i]-1.7f, g_enemies_min_y[i]-1.7f, g_enemies_min_z[i]-1.7f, 1.0f);
+            }
+            i++;
+    }
+        
+    for(int index = 0 ; index < (g_difficulty*3) ; index++ ){  //Para cada posicao do array de projeteis.
+        if(g_enemies_projectils[index].x!=100.0f
+        && g_enemies_projectils[index].y!=100.0f
+        && g_enemies_projectils[index].z!=100.0f){   //Se a posicao do array nao estiver vazia.
+            if(g_enemies_projectils[index].z  < 25.0f){ //Se o projetil ainda nao saiu dos limites da tela.
+                //Desenha o projetil na tela.
+                model = Matrix_Translate(g_enemies_projectils[index].x,g_enemies_projectils[index].y,g_enemies_projectils[index].z)
+                * Matrix_Scale(1.0f,1.0f,1.0f);
+                glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(object_id_uniform, PROJECTIL);
+                DrawVirtualObject("projectil");
+                //Salva a proxima posicao do projetil na tela.
+
+                g_enemies_projectils[index] = glm::vec4(g_enemies_projectils[index].x, g_enemies_projectils[index].y, g_enemies_projectils[index].z+15.0*g_difficulty*g_delta_time, 1.0f);
+            }
+            else{
+                for(i = 0; i < (g_difficulty*3); i++){   
+                    g_enemies_projectils[i]=glm::vec4(100.0f,100.0f,100.0f, 1.0f); //Sinaliza que a ultima posicao do array esta livre.
                 }
             }
         }
@@ -1496,22 +1563,10 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 
         g_space_pressed = 1;
     }
-
-    // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
-    if (key == GLFW_KEY_P && action == GLFW_PRESS)
-    {
-        g_UsePerspectiveProjection = true;
-    }
-
+    
     if (key == GLFW_KEY_F && action == GLFW_PRESS)
     {
         g_LookAt = !g_LookAt;
-    }
-
-    // Se o usuário apertar a tecla O, utilizamos projeção ortográfica.
-    if (key == GLFW_KEY_O && action == GLFW_PRESS)
-    {
-        g_UsePerspectiveProjection = false;
     }
 
     // Se o usuário apertar a tecla H, fazemos um "toggle" do texto informativo mostrado na tela.
@@ -1677,7 +1732,7 @@ void TextRendering_ShowModelViewProjection(
 
 // Escrevemos na tela os ângulos de Euler definidos nas variáveis globais
 // g_AngleX, g_AngleY, e g_AngleZ.
-void TextRendering_ShowEulerAngles(GLFWwindow* window)
+void TextRendering_PlayerLifes(GLFWwindow* window)
 {
     if ( !g_ShowInfoText )
         return;
@@ -1685,24 +1740,9 @@ void TextRendering_ShowEulerAngles(GLFWwindow* window)
     float pad = TextRendering_LineHeight(window);
 
     char buffer[80];
-    snprintf(buffer, 80, "Euler Angles rotation matrix = Z(%.2f)*Y(%.2f)*X(%.2f)\n", g_AngleZ, g_AngleY, g_AngleX);
+    snprintf(buffer, 80, "Player Lifes = %d\n", g_player_lifes);
 
-    TextRendering_PrintString(window, buffer, -1.0f+pad/10, -1.0f+2*pad/10, 1.0f);
-}
-
-// Escrevemos na tela qual matriz de projeção está sendo utilizada.
-void TextRendering_ShowProjection(GLFWwindow* window)
-{
-    if ( !g_ShowInfoText )
-        return;
-
-    float lineheight = TextRendering_LineHeight(window);
-    float charwidth = TextRendering_CharWidth(window);
-
-    if ( g_UsePerspectiveProjection )
-        TextRendering_PrintString(window, "Perspective", 1.0f-13*charwidth, -1.0f+2*lineheight/10, 1.0f);
-    else
-        TextRendering_PrintString(window, "Orthographic", 1.0f-13*charwidth, -1.0f+2*lineheight/10, 1.0f);
+    TextRendering_PrintString(window, buffer, -1.0f+pad/10, -1.0f+2*pad/10, 2.0f);
 }
 
 // Escrevemos na tela o número de quadros renderizados por segundo (frames per
