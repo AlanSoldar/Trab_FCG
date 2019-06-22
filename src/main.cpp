@@ -126,6 +126,8 @@ void mv_up();
 void mv_down();
 void mv_left();
 void mv_right();
+void check_projectiles_hit();
+void verify_enemies_restore();
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -212,6 +214,23 @@ float g_spaceship_inclination_x,g_spaceship_inclination_y;
 int g_space_pressed, g_projectil_count;
 glm::vec4 g_player_projectils[10];
 glm::vec4 g_enemies[10];
+
+#define NUM_ENEMIES 20
+
+int g_enemies_alive[NUM_ENEMIES];   //Array usado para controlar quais inimigos ainda estao vivos.
+int g_difficulty;                   //Variavel que controla quantos inimigos serao desenhados na tela.
+// Limites dos inimigos (usado para colisoes).
+float g_enemies_min_x[NUM_ENEMIES];
+float g_enemies_max_x[NUM_ENEMIES];
+float g_enemies_min_y[NUM_ENEMIES];
+float g_enemies_max_y[NUM_ENEMIES];
+float g_enemies_min_z[NUM_ENEMIES];
+float g_enemies_max_z[NUM_ENEMIES];
+
+
+float g_delta_time = 0.0f;
+float g_previous_time = 0.0f;
+float g_time_now = 0.0f;
 
 int main(int argc, char* argv[])
 {
@@ -352,10 +371,15 @@ int main(int argc, char* argv[])
     g_spaceship_inclination_y = 0.0f;
     g_space_pressed = 0;
     g_projectil_count = 0;
+    g_difficulty = 3;
     int i,j;
     for(j = 0;j<10;j++)
         g_player_projectils[j] = glm::vec4(100.0f,100.0f,100.0f,1.0f);
 
+    // inicializa o vetor que indica os inimigos vivos.
+    for(i = 0; i < NUM_ENEMIES; i++)
+        g_enemies_alive[i] = 1;
+    
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
@@ -377,6 +401,9 @@ int main(int argc, char* argv[])
         // os shaders de vértice e fragmentos).
         glUseProgram(program_id);
 
+        g_time_now = (float)glfwGetTime();
+        g_delta_time = g_time_now - g_previous_time;
+        g_previous_time = g_time_now;
         // Computamos a posição da câmera utilizando coordenadas esféricas.  As
         // variáveis g_CameraDistance, g_CameraPhi, e g_CameraTheta são
         // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
@@ -503,21 +530,33 @@ int main(int argc, char* argv[])
         #define PLANET 3
         #define PROJECTIL 4
         #define ENV 5
-
+        
+        int counter=0;
         int n_enemies = 10;
-        for (int j = -1; j < 2; j++)
-            for (int i = 0; i < 3; i++)
+        for (j = -1; j < 2; j++)
+            for (i = -1; i < g_difficulty-1; i++)
             {
-            // Desenhamos o modelo da esfera
-            model = Matrix_Translate(j*4,i*3,-30.0f)
-                  * Matrix_Rotate_Y(g_AngleY - (M_PI))
-                  * Matrix_Scale(4.0f, 4.0f, 4.0f);
-                  //* Matrix_Rotate_Z(0.6f)
-                  //* Matrix_Rotate_X(0.2f)
-                  //* Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
-            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-            glUniform1i(object_id_uniform, SPHERE);
-            DrawVirtualObject("sphere");
+                if(g_enemies_alive[counter] == 1){
+                    // Desenhamos o modelo da esfera
+                    model = Matrix_Translate(j*8,i*3+i,-30.0f)
+                        * Matrix_Rotate_Y(g_AngleY - (M_PI))
+                        * Matrix_Scale(4.0f, 4.0f, 4.0f);
+                        //* Matrix_Rotate_Z(0.6f)
+                        //* Matrix_Rotate_X(0.2f)
+                        //* Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
+                    glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(object_id_uniform, SPHERE);
+                    DrawVirtualObject("sphere");
+
+                    //Define os limites das naves inimigas
+                    g_enemies_min_x[counter] = (float) j*8 + 1.7f;
+                    g_enemies_min_y[counter] = (float) i*3+i + 1.7f;
+                    g_enemies_min_z[counter] = -30.0f + 1.7f;
+                    g_enemies_max_x[counter] = (float) j*8 - 1.7f;
+                    g_enemies_max_y[counter] = (float) i*3+i - 1.7f;
+                    g_enemies_max_z[counter] = -30.0f - 1.7f;
+                }
+                counter++;
             }
 
 
@@ -538,7 +577,7 @@ int main(int argc, char* argv[])
         // Desenhamos o modelo da esfera
         model = Matrix_Translate(-30.0f,-2.0f,-5.0f)
         * Matrix_Scale(12.0f,12.0f,12.0f)
-        * Matrix_Rotate_Y(g_AngleY - (float)glfwGetTime() * 0.04f);
+        * Matrix_Rotate_Y(g_AngleY - (float) glfwGetTime() * 0.04f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANET);
         DrawVirtualObject("planet");
@@ -546,7 +585,7 @@ int main(int argc, char* argv[])
         // Desenhamos o modelo do espaço esférico
         model = Matrix_Translate(0.0f,0.0f,0.0f)
         * Matrix_Scale(40.0f,40.0f,40.0f)
-        * Matrix_Rotate_Y(4.5f + g_AngleY - (float)glfwGetTime() * 0.01f);
+        * Matrix_Rotate_Y(4.5f + g_AngleY - (float) glfwGetTime() * 0.01f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, ENV);
         DrawVirtualObject("env");
@@ -572,7 +611,7 @@ int main(int argc, char* argv[])
                 if(g_player_projectils[index].x!=100.0f
                 && g_player_projectils[index].y!=100.0f
                 && g_player_projectils[index].z!=100.0f){   //Se a posicao do array nao estiver vazia.
-                    if(g_player_projectils[index].z  > -10.0f){ //Se o projetil ainda nao saiu dos limites da tela.
+                    if(g_player_projectils[index].z  > -50.0f){ //Se o projetil ainda nao saiu dos limites da tela.
 
                         //Desenha o projetil na tela.
                         model = Matrix_Translate(g_player_projectils[index].x,g_player_projectils[index].y,g_player_projectils[index].z)
@@ -585,7 +624,7 @@ int main(int argc, char* argv[])
                         //Salva a proxima posicao do projetil na tela.
 
                         glm::vec4 projectile_direction = glm::vec4(camera_view_vector.x, camera_view_vector.y+2.0f, camera_view_vector.z, 0.0f);
-                        g_player_projectils[index] += projectile_direction*0.15f;
+                        g_player_projectils[index] += projectile_direction*0.15f + g_delta_time;
                     }
                     else{   //Se o projetil ja saiu dos limites da tela.
                         for(i = index; i < 9; i++){ //Reposiciona todas as entradas do array.
@@ -597,6 +636,9 @@ int main(int argc, char* argv[])
                 }
             }
         }
+     
+        check_projectiles_hit();
+        verify_enemies_restore();
 
         // Pegamos um vértice com coordenadas de modelo (0.5, 0.5, 0.5, 1) e o
         // passamos por todos os sistemas de coordenadas armazenados nas
@@ -636,6 +678,46 @@ int main(int argc, char* argv[])
 
     // Fim do programa
     return 0;
+}
+
+void check_projectiles_hit(){
+    int counter = 0;
+    int i = 0;
+    for(i = 0; i < g_projectil_count; i++){
+        glm::vec4 projectil_position = g_player_projectils[i];
+
+        for(counter = 0; counter<g_difficulty*3; counter++){
+            if(g_enemies_alive[counter] == 1){
+                if(
+                    ((g_enemies_min_x[counter]>=projectil_position.x) && (projectil_position.x>=g_enemies_max_x[counter]))&&
+                    ((g_enemies_min_y[counter]>=projectil_position.y) && (projectil_position.y>=g_enemies_max_y[counter]))&&
+                    ((g_enemies_min_z[counter]>=projectil_position.z) && (projectil_position.z>=g_enemies_max_z[counter]))
+                ){
+                    g_enemies_alive[counter] = 0;
+                }
+            }
+        }
+    }
+}
+
+void verify_enemies_restore(){
+    int all_spaceships_destroyed = 1;
+    for(int i = 0; i<g_difficulty*3; i++){
+        if(g_enemies_alive[i] == 1){
+            all_spaceships_destroyed = 0;
+        }
+    }
+
+    if(((int)glfwGetTime())%5 == 0){
+        if(all_spaceships_destroyed){
+            if(g_difficulty<5){
+                g_difficulty++;
+                for(int i = 0; i<g_difficulty*3; i++){
+                    g_enemies_alive[i] = 1;
+                }
+            }
+        }
+    }
 }
 
 // Função que carrega uma imagem para ser utilizada como textura
@@ -1249,8 +1331,8 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         float dy = ypos - g_LastCursorPosY;
 
         // Atualizamos parâmetros da câmera com os deslocamentos
-        g_CameraTheta -= 0.01f*dx;
-        g_CameraPhi   += 0.01f*dy;
+        g_CameraTheta -= 0.5f*dx*g_delta_time;
+        g_CameraPhi   += 0.5f*dy*g_delta_time;
 
         // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
         float phimin = -3.141592f/6;
@@ -1498,7 +1580,7 @@ void mv_up(){
     //g_camera_position_c.z -= 0.2f*sin(g_CameraPhi);
     //g_camera_position_c.y += 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
     if (g_TorsoPositionY < 2.0f)
-        g_TorsoPositionY += 0.2f;
+        g_TorsoPositionY += 2.3f * g_delta_time;
 }
 //Função para movimentar a câmera para trás.
 void mv_down(){
@@ -1506,7 +1588,7 @@ void mv_down(){
     //g_camera_position_c.z += 0.2f*sin(g_CameraPhi);
     //g_camera_position_c.y -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
     if (g_TorsoPositionY > -0.2f)
-        g_TorsoPositionY -= 0.2f;
+        g_TorsoPositionY -= 2.3f * g_delta_time;
 }
 //Função para movimentar a câmera para a esquerda.
 void mv_left(){
@@ -1514,7 +1596,7 @@ void mv_left(){
     //g_camera_position_c.y = g_camera_position_c.y;
     //g_camera_position_c.x -= 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
     if (g_TorsoPositionX > -1.5f)
-        g_TorsoPositionX -= 0.2f;
+        g_TorsoPositionX -= 2.3f * g_delta_time;
 }
 //Função para movimentar a câmera para a direita.
 void mv_right(){
@@ -1522,7 +1604,7 @@ void mv_right(){
     //g_camera_position_c.y = g_camera_position_c.y;
     //g_camera_position_c.x += 0.2f*cos(g_CameraPhi)*cos(g_CameraTheta);
     if (g_TorsoPositionX < 1.5f)
-        g_TorsoPositionX += 0.2f;
+        g_TorsoPositionX += 2.3f * g_delta_time;
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal

@@ -70,6 +70,9 @@ void main()
     // Vetor que define o sentido da câmera em relação ao ponto atual.
     vec4 v = normalize(camera_position - p);
 
+    // Vetor usado para o modelo de iluminacao Blinn-Phong usado na nave aliada.
+    vec4 h = normalize(v + l);
+
     // Coordenadas de textura U e V
     float U = 0.0;
     float V = 0.0;
@@ -194,7 +197,8 @@ void main()
     }
     // Obtemos a refletância difusa a partir da leitura da imagem TextureImage0
 
-
+    // Termo de iluminacao do modelo Blinn-Phong
+    float blinn_phong = max(0, pow(dot(n,h),15));
 
     // Equação de Iluminação
     float lambert = max(0,dot(n,l));
@@ -205,12 +209,15 @@ void main()
     vec3 Kd0_red = texture(TextureImage3, vec2(U,V)).rgb;
     vec3 Kd0_blue = texture(TextureImage4, vec2(U,V)).rgb;
     vec3 Kd0_green = texture(TextureImage5, vec2(U,V)).rgb;
+    
+    //Refletancia especular da nave aliada.
+    vec3 Ks_ship = vec3(1.0f,1.0f,1.0f);
 
     if(object_id == ENV)
         color = Kd0_stars ;
 
     else if(object_id == BUNNY)
-        color = Kd0_blue *(lambert + 0.01);
+        color = Kd0_blue *(lambert + 0.01)+Ks_ship*blinn_phong;
 
     else if(object_id == SPHERE)
         color = Kd0_red *(lambert + 0.01);
