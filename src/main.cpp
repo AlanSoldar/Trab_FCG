@@ -191,6 +191,8 @@ bool g_ShowInfoText = true;
 
 bool g_LookAt = true;
 
+bool pause = false;
+
 // Variáveis que definem um programa de GPU (shaders). Veja função LoadShadersFromFiles().
 GLuint vertex_shader_id;
 GLuint fragment_shader_id;
@@ -205,8 +207,8 @@ GLint bbox_max_uniform;
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
 
-glm::vec4 g_camera_position_c;
-glm::vec4 g_camera_lookat_l;
+glm::vec4 g_camera_position_c = glm::vec4(0.0f, 0.0f, 3.0f, 1.0f);
+glm::vec4 g_camera_lookat_l = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 int g_up, g_down, g_right, g_left;
 
 
@@ -231,6 +233,9 @@ float g_enemies_max_z[NUM_ENEMIES];
 float g_delta_time = 0.0f;
 float g_previous_time = 0.0f;
 float g_time_now = 0.0f;
+float global_time = (float)glfwGetTime();
+float local_time = 0.0f;
+float pause_time = 0.0f;
 
 int main(int argc, char* argv[])
 {
@@ -379,7 +384,7 @@ int main(int argc, char* argv[])
     // inicializa o vetor que indica os inimigos vivos.
     for(i = 0; i < NUM_ENEMIES; i++)
         g_enemies_alive[i] = 1;
-    
+
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
@@ -530,15 +535,61 @@ int main(int argc, char* argv[])
         #define PLANET 3
         #define PROJECTIL 4
         #define ENV 5
-        
+
+        if (pause)
+            local_time = 0.0f;
+        else
+            local_time = (float)glfwGetTime();
+        //curva de bezie para movimento vertical dos inimigos
+        glm::vec4 p1 = {0.0, 0.0, 0.0, 1.0};  //ponto inicial
+        glm::vec4 p2 = {0.0, 2.5, 0.0, 1.0};  // primeiro ponto de controle
+        glm::vec4 p3 = {0.0, 3.0, 0.0, 1.0};  // segundo ponto de controle
+        glm::vec4 p4 = {0.0, 0.0, 0.0, 1.0};  // ponto medio de ligação das duas curvas
+        glm::vec4 p5 = {0.0, -2.5, 0.0, 1.0}; //primeiro ponto de controle da segunda curva
+        glm::vec4 p6 = {0.0, -3.0, 0.0, 1.0}; // segundo ponto de controle da segunda curva
+        glm::vec4 p7 = {0.0, 0.0, 0.0, 1.0};  // ponto final
+        glm::vec4 c = {0.0, 0.0, 0.0, 1.0};    //inicialização da função da reta
+
+        if (fmod(local_time, 2) < 1)
+        {
+            float time = fmod(local_time, 2);
+            glm::vec4 c12 = p1 + time*(p2-p1);
+            glm::vec4 c23 = p2 + time*(p3-p2);
+            glm::vec4 c34 = p3 + time*(p4-p3);
+            glm::vec4 c123 = c12 + time*(c23-c12);
+            glm::vec4 c234 = c23 + time*(c34-c23);
+            c = c123 + time*(c234-c123);
+        }
+        else
+        {
+            float time = fmod(local_time, 2)-1;
+            glm::vec4 c12 = p4 + time*(p5-p4);
+            glm::vec4 c23 = p5 + time*(p6-p5);
+            glm::vec4 c34 = p6 + time*(p7-p6);
+            glm::vec4 c123 = c12 + time*(c23-c12);
+            glm::vec4 c234 = c23 + time*(c34-c23);
+            c = c123 + time*(c234-c123);
+
+        }
+        //inimigos chegam mais perto com o tempo
+
+        c.z += 0.5 * local_time;
+
         int counter=0;
         int n_enemies = 10;
+        double enemie_Distance = -30;
+        double enemie_separation_y = 3;
+        double enemie_separation_x = 8;
         for (j = -1; j < 2; j++)
             for (i = -1; i < g_difficulty-1; i++)
             {
                 if(g_enemies_alive[counter] == 1){
-                    // Desenhamos o modelo da esfera
-                    model = Matrix_Translate(j*8,i*3+i,-30.0f)
+                    // Desenhamos o modelo da nave inimiga
+                    double enemie_pos_x = j*enemie_separation_x + c.x;
+                    double enemie_pos_y = i*enemie_separation_y+i + c.y;
+                    double enemie_pos_z = enemie_Distance + c.z;
+
+                    model = Matrix_Translate(enemie_pos_x, enemie_pos_y, enemie_pos_z)
                         * Matrix_Rotate_Y(g_AngleY - (M_PI))
                         * Matrix_Scale(4.0f, 4.0f, 4.0f);
                         //* Matrix_Rotate_Z(0.6f)
@@ -549,12 +600,12 @@ int main(int argc, char* argv[])
                     DrawVirtualObject("sphere");
 
                     //Define os limites das naves inimigas
-                    g_enemies_min_x[counter] = (float) j*8 + 1.7f;
-                    g_enemies_min_y[counter] = (float) i*3+i + 1.7f;
-                    g_enemies_min_z[counter] = -30.0f + 1.7f;
-                    g_enemies_max_x[counter] = (float) j*8 - 1.7f;
-                    g_enemies_max_y[counter] = (float) i*3+i - 1.7f;
-                    g_enemies_max_z[counter] = -30.0f - 1.7f;
+                    g_enemies_min_x[counter] = (float) enemie_pos_x + 1.8f;
+                    g_enemies_min_y[counter] = (float) enemie_pos_y + 1.8f;
+                    g_enemies_min_z[counter] = (float) enemie_pos_z + 1.8f;
+                    g_enemies_max_x[counter] = (float) enemie_pos_x - 1.8f;
+                    g_enemies_max_y[counter] = (float) enemie_pos_y - 1.8f;
+                    g_enemies_max_z[counter] = (float) enemie_pos_z - 1.8f;
                 }
                 counter++;
             }
@@ -562,12 +613,32 @@ int main(int argc, char* argv[])
 
         // Desenhamos o modelo da nave aliada
         //posição da camera + um deslocamento vetorizado pelo vetor view da camera multiplicado pela distancia desejada entre a nave e a camera
-        glm::vec3 ship_position = glm::vec3 (g_TorsoPositionX+camera_position_c.x+camera_view_vector.x*ship_distance,
-                                             g_TorsoPositionY+camera_position_c.y+(camera_view_vector.y*ship_distance)-1.0f,
-                                             camera_position_c.z+camera_view_vector.z*ship_distance);
-        model = Matrix_Translate(ship_position.x, ship_position.y, ship_position.z)*
-                Matrix_Rotate_X(-g_CameraPhi + g_spaceship_inclination_x)*  //rotação de com angulo x fixo baseado no angulo da camera
-                Matrix_Rotate_Y(g_CameraTheta + g_spaceship_inclination_y); //rotação de com angulo y fixo baseado no angulo da camera
+        double ship_pos_x;
+        double ship_pos_y;
+        double ship_pos_z;
+        double ship_rotate_phi;
+        double ship_rotate_theta;
+
+        if (pause)
+        {
+            ship_pos_x = g_TorsoPositionX;
+            ship_pos_y = g_TorsoPositionY;
+            ship_pos_z = ship_distance;
+            ship_rotate_phi = 0.0;
+            ship_rotate_theta = 0.0;
+        }
+        else
+        {
+            ship_pos_x = g_TorsoPositionX+camera_position_c.x+camera_view_vector.x*ship_distance;
+            ship_pos_y = g_TorsoPositionY+camera_position_c.y+(camera_view_vector.y*ship_distance)-1.0f;
+            ship_pos_z = camera_position_c.z+camera_view_vector.z*ship_distance;
+            ship_rotate_phi = -g_CameraPhi + g_spaceship_inclination_x;
+            ship_rotate_theta = g_CameraTheta + g_spaceship_inclination_y;
+        }
+
+        model = Matrix_Translate(ship_pos_x, ship_pos_y, ship_pos_z)*
+                Matrix_Rotate_X(ship_rotate_phi)*  //rotação de com angulo x fixo baseado no angulo da camera
+                Matrix_Rotate_Y(ship_rotate_theta); //rotação de com angulo y fixo baseado no angulo da camera
 
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, BUNNY);
@@ -599,7 +670,7 @@ int main(int argc, char* argv[])
                 && i<10)    //Verifica se ainda existe espaco para alocar mais um projetil.
                     i++;
                 if(i<10){   //Se ainda existe espaco, acrescenta mais um projetil na lista que deve ser desenhada.
-                    g_player_projectils[i] = glm::vec4(ship_position.x, ship_position.y, ship_position.z, 1.0f);
+                    g_player_projectils[i] = glm::vec4(ship_pos_x, ship_pos_y, ship_pos_z, 1.0f);
                     g_projectil_count += 1;
                 }
             }
@@ -636,7 +707,7 @@ int main(int argc, char* argv[])
                 }
             }
         }
-     
+
         check_projectiles_hit();
         verify_enemies_restore();
 
@@ -689,9 +760,9 @@ void check_projectiles_hit(){
         for(counter = 0; counter<g_difficulty*3; counter++){
             if(g_enemies_alive[counter] == 1){
                 if(
-                    ((g_enemies_min_x[counter]>=projectil_position.x) && (projectil_position.x>=g_enemies_max_x[counter]))&&
-                    ((g_enemies_min_y[counter]>=projectil_position.y) && (projectil_position.y>=g_enemies_max_y[counter]))&&
-                    ((g_enemies_min_z[counter]>=projectil_position.z) && (projectil_position.z>=g_enemies_max_z[counter]))
+                    ((projectil_position.x <= g_enemies_min_x[counter]) && (projectil_position.x>=g_enemies_max_x[counter]))&&
+                    ((projectil_position.y <= g_enemies_min_y[counter]) && (projectil_position.y>=g_enemies_max_y[counter]))&&
+                    ((projectil_position.z <= g_enemies_min_z[counter]) && (projectil_position.z>=g_enemies_max_z[counter]))
                 ){
                     g_enemies_alive[counter] = 0;
                 }
@@ -715,7 +786,9 @@ void verify_enemies_restore(){
                 for(int i = 0; i<g_difficulty*3; i++){
                     g_enemies_alive[i] = 1;
                 }
+                glfwSetTime(0.0);
             }
+
         }
     }
 }
@@ -1324,7 +1397,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     // parâmetros que definem a posição da câmera dentro da cena virtual.
     // Assim, temos que o usuário consegue controlar a câmera.
 
-    if (g_LeftMouseButtonPressed)
+    if (g_LeftMouseButtonPressed && !pause)
     {
         // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
         float dx = xpos - g_LastCursorPosX;
@@ -1335,11 +1408,11 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         g_CameraPhi   += 0.5f*dy*g_delta_time;
 
         // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-        float phimin = -3.141592f/6;
+        float phimin = -3.141592f/4;
         float phimax = -phimin;
 
         // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-        float thetamax = 3.141592f/6;
+        float thetamax = 3.141592f/4;
         float thetamin = -thetamax;
 
         if (g_CameraPhi > phimax)
@@ -1366,8 +1439,8 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         float dy = ypos - g_LastCursorPosY;
 
         // Atualizamos parâmetros da câmera com os deslocamentos
-        g_CameraTheta -= 0.01f*dx;
-        g_CameraPhi   += 0.01f*dy;
+        g_CameraTheta -= 0.5f*dx*g_delta_time;
+        g_CameraPhi   += 0.5f*dy*g_delta_time;
 
         // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
         float phimax = 3.141592f/2;
@@ -1503,8 +1576,13 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         g_UsePerspectiveProjection = true;
     }
 
-    if (key == GLFW_KEY_F && action == GLFW_PRESS)
+    if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
     {
+        if (!pause)
+            pause_time = (float)glfwGetTime();
+        else
+            glfwSetTime(pause_time);
+        pause = !pause;
         g_LookAt = !g_LookAt;
     }
 
@@ -1529,49 +1607,49 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     }
     // Pressionando a tecla W, a flag global de movimentar para frente é ativada, e
     // só é desativada quando a tecla é liberada.
-    if (key == GLFW_KEY_W && action == GLFW_PRESS)
-    {
+    if (key == GLFW_KEY_W && action == GLFW_PRESS && !pause)
         g_up = 1;
 
-
+    else if(key == GLFW_KEY_W && action == GLFW_PRESS && pause)
+    {
+        glm::vec4 view_vec = (g_camera_lookat_l - g_camera_position_c)*0.01f;
+        g_camera_position_c += view_vec;
+        g_camera_lookat_l += view_vec;
     }
     if (key == GLFW_KEY_W && action == GLFW_RELEASE)
-    {
        g_up = 0;
-    }
+
     // Pressionando a tecla S, a flag global de movimentar para trás é ativada, e
     // só é desativada quando a tecla é liberada.
-    if (key == GLFW_KEY_S && action == GLFW_PRESS)
-    {
+    if (key == GLFW_KEY_S && action == GLFW_PRESS && !pause)
         g_down = 1;
 
-    }
-    if (key == GLFW_KEY_S && action == GLFW_RELEASE)
+    else if(key == GLFW_KEY_S && action == GLFW_PRESS && pause)
     {
-        g_down = 0;
+        glm::vec4 view_vec = (g_camera_lookat_l - g_camera_position_c)*0.01f;
+        g_camera_position_c -= view_vec;
+        g_camera_lookat_l -= view_vec;
     }
+
+    if (key == GLFW_KEY_S && action == GLFW_RELEASE)
+        g_down = 0;
+
     // Pressionando a tecla A, a flag global de movimentar para esquerda é ativada, e
     // só é desativada quando a tecla é liberada.
-    if (key == GLFW_KEY_A && action == GLFW_PRESS)
-    {
+    if (key == GLFW_KEY_A && action == GLFW_PRESS && !pause)
         g_left = 1;
 
-    }
     if (key == GLFW_KEY_A && action == GLFW_RELEASE)
-    {
        g_left = 0;
-    }
+
     // Pressionando a tecla D, a flag global de movimentar para direita é ativada, e
     // só é desativada quando a tecla é liberada.
-    if (key == GLFW_KEY_D && action == GLFW_PRESS)
-    {
+    if (key == GLFW_KEY_D && action == GLFW_PRESS && !pause)
         g_right = 1;
 
-    }
     if (key == GLFW_KEY_D && action == GLFW_RELEASE)
-    {
        g_right = 0;
-    }
+
 }
 
 //Função para movimentar a câmera para frente.
