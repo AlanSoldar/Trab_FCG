@@ -529,7 +529,7 @@ int main(int argc, char* argv[])
 
 
         render_enemies();
-        if(g_game_status == 1)
+        if(g_game_status == 1 && !pause)
             render_enemies_projectiles();
 
 
@@ -644,7 +644,7 @@ void check_enemies_projectiles_hit(glm::vec3 player_spaceship_position){
             projectil_position.y != 100.0f &&
             projectil_position.z != 100.0f){
                 if( ((ship_pos_x-1.8f)<=projectil_position.x) && ((ship_pos_x+1.8f)>=projectil_position.x) &&
-                    ((ship_pos_y-0.7f)<=projectil_position.y) && ((ship_pos_y+0.7f)>=projectil_position.y) &&
+                    ((ship_pos_y-0.4f)<=projectil_position.y) && ((ship_pos_y+0.4f)>=projectil_position.y) &&
                     ((ship_pos_z-1.8f)<=projectil_position.z) && ((ship_pos_z+1.8f)>=projectil_position.z))
                     {
                         //g_enemies_projectils[i] = glm::vec4(100.0f,100.0f,100.0f,1.0f);
@@ -1504,7 +1504,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         g_LastCursorPosX = xpos;
         g_LastCursorPosY = ypos;
     }
-    else if (g_LeftMouseButtonPressed && !g_LookAt)
+    else if (g_LeftMouseButtonPressed && pause)
     {
         // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
         float dx = xpos - g_LastCursorPosX;
@@ -1530,7 +1530,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         g_LastCursorPosY = ypos;
 
         float r = g_CameraDistance;
-        float y = r*sin(g_CameraPhi);
+        float y = -r*sin(g_CameraPhi);
         float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
         float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
 
@@ -1601,7 +1601,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
     {
-        if(g_game_status == 1)
+        if(g_game_status == 1 && !pause)
             g_space_pressed = 1;
     }
 
