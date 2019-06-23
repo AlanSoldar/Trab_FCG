@@ -662,6 +662,9 @@ void verify_enemies_restore(){
         }
     }
 
+    if(all_spaceships_destroyed && g_difficulty==5)
+        g_game_status=3;
+
     if(((int)glfwGetTime())%5 == 0){
         if(all_spaceships_destroyed){
             if(g_difficulty<5){
