@@ -1,7 +1,7 @@
 # Blender v2.79 (sub 0) OBJ File: 'ship.blend'
 # www.blender.org
 mtllib NaveAliadaComplexa.mtl
-g bunny
+g player
 v 0.187510 0.055515 0.212992
 v 0.236349 0.053799 -0.058492
 v -0.023370 0.085219 0.302764

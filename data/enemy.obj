@@ -1,6 +1,6 @@
 # Blender v2.79 (sub 0) OBJ File: 'enemyBigger.blend'
 # www.blender.org
-g sphere
+g enemy
 v 0.505759 0.063041 0.189705
 v 0.495582 0.059942 0.177155
 v 0.469837 0.064243 0.166845
