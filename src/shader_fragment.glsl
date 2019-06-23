@@ -19,8 +19,8 @@ uniform mat4 view;
 uniform mat4 projection;
 
 // Identificador que define qual objeto está sendo desenhado no momento
-#define SPHERE 0
-#define BUNNY  1
+#define ENEMY 0
+#define PLAYER  1
 #define PLANE  2
 #define PLANET 3
 #define PROJECTIL 4
@@ -77,7 +77,7 @@ void main()
     float U = 0.0;
     float V = 0.0;
 
-    if ( object_id == SPHERE )
+    if ( object_id == ENEMY )
     {
         // PREENCHA AQUI as coordenadas de textura da esfera, computadas com
         // projeção esférica EM COORDENADAS DO MODELO. Utilize como referência
@@ -101,7 +101,7 @@ void main()
         U = (teta+M_PI)/(2*M_PI);
         V = (phi+M_PI_2)/M_PI;
     }
-    else if ( object_id == BUNNY )
+    else if ( object_id == PLAYER )
     {
         // PREENCHA AQUI as coordenadas de textura do coelho, computadas com
         // projeção planar XY em COORDENADAS DO MODELO. Utilize como referência
@@ -216,10 +216,10 @@ void main()
     if(object_id == ENV)
         color = Kd0_stars ;
 
-    else if(object_id == BUNNY)
+    else if(object_id == PLAYER)
         color = Kd0_blue *(lambert + 0.01)+Ks_ship*blinn_phong;
 
-    else if(object_id == SPHERE)
+    else if(object_id == ENEMY)
         color = Kd0_red *(lambert + 0.01);
 
     else if(object_id == PROJECTIL)
