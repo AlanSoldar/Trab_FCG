@@ -289,7 +289,7 @@ int main(int argc, char* argv[])
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
     GLFWwindow* window;
-    window = glfwCreateWindow(800, 600, "INF01047 - Seu Cartao - Seu Nome", NULL, NULL);
+    window = glfwCreateWindow(800, 600, "INF01047 - AS_GT_Invaders", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -565,11 +565,10 @@ int main(int argc, char* argv[])
             if(g_player_lifes==0){
                 g_game_status = 2;
             }
+            check_projectiles_hit();
+            verify_enemies_restore();
+            TextRendering_PlayerLifes(window);        
         }
-
-        check_projectiles_hit();
-        verify_enemies_restore();
-        TextRendering_PlayerLifes(window);
 
         // Imprimimos na tela informação sobre o número de quadros renderizados
         // por segundo (frames per second).
@@ -713,7 +712,7 @@ void render_enemies(){
         }
         //inimigos chegam mais perto com o tempo
         if(g_game_status == 1)
-            c.z += 0.4 * local_time;
+            c.z += 0.2 * local_time;
 
     glm::mat4 model = Matrix_Identity();
     int counter=0;
